@@ -1,7 +1,8 @@
 import "./App.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toaster } from "sonner";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke } from "@tauri-apps/api/core";
 import { ThemeProvider } from "./context/ThemeContext";
 import { PromptsProvider } from "./context/PromptsContext";
 import { Sidebar } from "./components/collections/Sidebar";
@@ -46,6 +47,10 @@ function AppShell() {
 
 export default function App() {
   const isPalette = windowLabel === "palette";
+
+  useEffect(() => {
+    void invoke("setup_palette_window");
+  }, []);
 
   return (
     <ThemeProvider>

@@ -1,9 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tokio::fs;
+
+// Stores the process ID of the app that was frontmost before the palette opened
+struct PreviousApp(Mutex<Option<i32>>);
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -149,6 +153,78 @@ async fn copy_to_clipboard(app: AppHandle, text: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn setup_palette_window(app: AppHandle) -> Result<(), String> {
+    if let Some(palette) = app.get_webview_window("palette") {
+        palette
+            .set_visible_on_all_workspaces(true)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn show_palette(app: AppHandle) -> Result<(), String> {
+    // Save the current frontmost app PID before showing the palette
+    #[cfg(target_os = "macos")]
+    {
+        let pid = get_frontmost_pid();
+        if let Some(state) = app.try_state::<PreviousApp>() {
+            *state.0.lock().unwrap() = pid;
+        }
+    }
+    if let Some(window) = app.get_webview_window("palette") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn hide_palette(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("palette") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    // Restore the previous frontmost app
+    #[cfg(target_os = "macos")]
+    {
+        let pid = app
+            .try_state::<PreviousApp>()
+            .and_then(|s| *s.0.lock().unwrap());
+        if let Some(pid) = pid {
+            activate_app_by_pid(pid);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn get_frontmost_pid() -> Option<i32> {
+    use std::process::Command;
+    let output = Command::new("osascript")
+        .args(["-e", "tell application \"System Events\" to get unix id of first process whose frontmost is true"])
+        .output()
+        .ok()?;
+    String::from_utf8(output.stdout)
+        .ok()?
+        .trim()
+        .parse::<i32>()
+        .ok()
+}
+
+#[cfg(target_os = "macos")]
+fn activate_app_by_pid(pid: i32) {
+    let _ = std::process::Command::new("osascript")
+        .args([
+            "-e",
+            &format!(
+                "tell application \"System Events\" to set frontmost of first process whose unix id is {} to true",
+                pid
+            ),
+        ])
+        .spawn();
+}
+
+#[tauri::command]
 async fn show_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         window.show().map_err(|e| e.to_string())?;
@@ -161,6 +237,7 @@ async fn show_window(app: AppHandle) -> Result<(), String> {
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(PreviousApp(Mutex::new(None)))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
@@ -171,6 +248,14 @@ pub fn run() {
             let app_handle = app.handle().clone();
             app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
                 if event.state() == ShortcutState::Pressed {
+                    // Save frontmost app PID before showing palette
+                    #[cfg(target_os = "macos")]
+                    {
+                        let pid = get_frontmost_pid();
+                        if let Some(state) = app_handle.try_state::<PreviousApp>() {
+                            *state.0.lock().unwrap() = pid;
+                        }
+                    }
                     if let Some(window) = app_handle.get_webview_window("palette") {
                         let _ = window.show();
                         let _ = window.set_focus();
@@ -188,6 +273,9 @@ pub fn run() {
             delete_collection,
             copy_to_clipboard,
             show_window,
+            setup_palette_window,
+            show_palette,
+            hide_palette,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Stash");

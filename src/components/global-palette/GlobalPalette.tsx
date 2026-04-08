@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MagnifyingGlass, Notepad } from "@phosphor-icons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke } from "@tauri-apps/api/core";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { extractVariables } from "../../services/variables";
@@ -15,13 +16,14 @@ export function GlobalPalette() {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [frozenList, setFrozenList] = useState<Prompt[] | null>(null);
   const [warmUpPrompt, setWarmUpPrompt] = useState<Prompt | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filtered: Prompt[] = query.trim()
+  const liveFiltered: Prompt[] = query.trim()
     ? prompts.filter(
         (p) =>
           p.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -33,9 +35,12 @@ export function GlobalPalette() {
         return bTime - aTime;
       });
 
+  // Use frozen list during copy animation to prevent reorder jump
+  const filtered = frozenList ?? liveFiltered;
+
   const collectionName = (id: string | null) => {
-    if (!id) return null;
-    return collections.find((c) => c.id === id)?.name ?? null;
+    if (!id) return "General";
+    return collections.find((c) => c.id === id)?.name ?? "General";
   };
 
   // Refresh data and focus input when window is shown
@@ -46,12 +51,13 @@ export function GlobalPalette() {
         setQuery("");
         setActiveIndex(0);
         setCopiedId(null);
+        setFrozenList(null);
         setWarmUpPrompt(null);
         setIsClosing(false);
         setTimeout(() => inputRef.current?.focus(), 50);
       } else {
         if (!isClosing) {
-          await appWindow.hide();
+          await invoke("hide_palette");
         }
       }
     });
@@ -74,16 +80,21 @@ export function GlobalPalette() {
     setActiveIndex(0);
   }, [query]);
 
-  const close = useCallback(async () => {
-    if (isClosing) return;
-    if (closeTimeout.current) clearTimeout(closeTimeout.current);
+  const resetState = useCallback(() => {
     setQuery("");
     setActiveIndex(0);
     setCopiedId(null);
+    setFrozenList(null);
     setWarmUpPrompt(null);
     setIsClosing(false);
-    await appWindow.hide();
-  }, [isClosing]);
+  }, []);
+
+  const close = useCallback(async () => {
+    if (isClosing) return;
+    if (closeTimeout.current) clearTimeout(closeTimeout.current);
+    resetState();
+    await invoke("hide_palette");
+  }, [isClosing, resetState]);
 
   const closeAnimated = useCallback(async () => {
     if (isClosing) return;
@@ -92,13 +103,9 @@ export function GlobalPalette() {
     await new Promise<void>((r) => {
       closeTimeout.current = setTimeout(r, 200);
     });
-    setQuery("");
-    setActiveIndex(0);
-    setCopiedId(null);
-    setWarmUpPrompt(null);
-    setIsClosing(false);
-    await appWindow.hide();
-  }, [isClosing]);
+    resetState();
+    await invoke("hide_palette");
+  }, [isClosing, resetState]);
 
   const handleSelect = useCallback(async (prompt: Prompt) => {
     const vars = extractVariables(prompt.content);
@@ -106,10 +113,11 @@ export function GlobalPalette() {
       setWarmUpPrompt(prompt);
       return;
     }
+    setFrozenList([...liveFiltered]); // freeze before copy updates the store
     await copyPrompt(prompt, true);
     setCopiedId(prompt.id);
     setTimeout(() => void closeAnimated(), 850);
-  }, [copyPrompt, closeAnimated]);
+  }, [copyPrompt, closeAnimated, liveFiltered]);
 
   const handleWarmUpCopy = useCallback(async (resolvedContent: string) => {
     if (!warmUpPrompt) return;
@@ -210,7 +218,7 @@ export function GlobalPalette() {
                     ? "bg-[rgba(217,119,6,0.05)]"
                     : active
                     ? "bg-[var(--color-bg-muted)]"
-                    : "hover:bg-[var(--color-bg-muted)]"
+                    : ""
                 )}
               >
                 <Notepad size={16} weight="regular" className="shrink-0 text-[var(--color-text-muted)]" />

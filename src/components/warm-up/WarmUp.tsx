@@ -85,7 +85,7 @@ function VarChip({
   return (
     <span
       onClick={onEdit}
-      className="inline-block rounded-md px-1.5 py-0.5 text-sm leading-snug bg-[var(--color-stash)]/10 text-[var(--color-stash)] italic cursor-pointer hover:bg-[var(--color-stash)]/15 transition-colors"
+      className="inline-block rounded-md px-1.5 py-0.5 text-sm leading-snug bg-[var(--color-stash)]/10 text-[var(--color-stash)] cursor-pointer hover:bg-[var(--color-stash)]/15 transition-colors"
     >
       {name}
     </span>

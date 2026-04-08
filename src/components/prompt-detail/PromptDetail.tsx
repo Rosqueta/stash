@@ -1,10 +1,11 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { PushPin, Copy, Trash, Folder, CaretDown, Note, Notepad } from "@phosphor-icons/react";
+import { PushPin, Copy, Trash, Folder, CaretDown, Note, Notepad, MagnifyingGlass, Plus, Check } from "@phosphor-icons/react";
 import { VariableEditor } from "./VariableEditor";
 import { WarmUp } from "../warm-up/WarmUp";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -22,6 +23,9 @@ export function PromptDetail() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [notes, setNotes] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
   const [isPinned, setIsPinned] = useState(false);
   const [warmUpOpen, setWarmUpOpen] = useState(false);
 
@@ -41,6 +45,7 @@ export function PromptDetail() {
     setTitle(prompt.title);
     setContent(prompt.content);
     setNotes(prompt.notes);
+    setTags(prompt.tags);
     setIsPinned(prompt.isPinned);
   }, [prompt]);
 
@@ -92,6 +97,30 @@ export function PromptDetail() {
     setIsPinned(next);
     scheduleSave({ isPinned: next });
   }, [isPinned, scheduleSave]);
+
+  // Global tag pool: union of all tags across all prompts
+  const globalTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prompts) for (const t of p.tags) set.add(t);
+    return Array.from(set).sort();
+  }, [prompts]);
+
+  const handleToggleTag = useCallback((tag: string) => {
+    const next = tags.includes(tag)
+      ? tags.filter((t) => t !== tag)
+      : [...tags, tag];
+    setTags(next);
+    scheduleSave({ tags: next });
+  }, [tags, scheduleSave]);
+
+  const handleCreateTag = useCallback(() => {
+    const tag = tagSearch.trim().toLowerCase();
+    if (!tag || tags.includes(tag)) return;
+    const next = [...tags, tag];
+    setTags(next);
+    setTagSearch("");
+    scheduleSave({ tags: next });
+  }, [tagSearch, tags, scheduleSave]);
 
   const handleCollectionChange = useCallback(
     (collectionId: string | null) => {
@@ -209,6 +238,19 @@ export function PromptDetail() {
           className="w-full text-2xl font-bold bg-transparent text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-tight"
         />
 
+        {/* Tags */}
+        <TagEditor
+          tags={tags}
+          globalTags={globalTags}
+          open={tagDropdownOpen}
+          onOpenChange={(v) => { setTagDropdownOpen(v); if (!v) setTagSearch(""); }}
+          tagSearch={tagSearch}
+          onTagSearchChange={setTagSearch}
+          onToggleTag={handleToggleTag}
+          onCreateTag={handleCreateTag}
+          onRemoveTag={(tag) => handleToggleTag(tag)}
+        />
+
         {/* Content */}
         <VariableEditor
           value={content}
@@ -236,7 +278,7 @@ export function PromptDetail() {
         />
       </div>
 
-      {/* Warm Up modal */}
+      {/* Warm-Up modal */}
       {warmUpOpen && prompt && (
         <div
           className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -251,6 +293,162 @@ export function PromptDetail() {
               }}
               onClose={() => setWarmUpOpen(false)}
             />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TagEditor ─────────────────────────────────────────────────────────────────
+
+interface TagEditorProps {
+  tags: string[];
+  globalTags: string[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tagSearch: string;
+  onTagSearchChange: (v: string) => void;
+  onToggleTag: (tag: string) => void;
+  onCreateTag: () => void;
+  onRemoveTag: (tag: string) => void;
+}
+
+function TagEditor({
+  tags,
+  globalTags,
+  open,
+  onOpenChange,
+  tagSearch,
+  onTagSearchChange,
+  onToggleTag,
+  onCreateTag,
+  onRemoveTag,
+}: TagEditorProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = tagSearch.trim().toLowerCase();
+    const pool = [
+      ...tags.filter((t) => !globalTags.includes(t)),
+      ...globalTags,
+    ].filter((t, i, arr) => arr.indexOf(t) === i); // dedupe
+    if (!q) return pool;
+    return pool.filter((t) => t.includes(q));
+  }, [globalTags, tags, tagSearch]);
+
+  const showCreate =
+    tagSearch.trim().length > 0 &&
+    !filtered.includes(tagSearch.trim().toLowerCase());
+
+  // Close on mousedown outside
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onOpenChange(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open, onOpenChange]);
+
+  // Focus input when opens
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  // Sort: assigned first, then rest
+  const sorted = useMemo(() => {
+    return [
+      ...filtered.filter((t) => tags.includes(t)),
+      ...filtered.filter((t) => !tags.includes(t)),
+    ];
+  }, [filtered, tags]);
+
+  return (
+    <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5 min-h-[24px]">
+      {/* Chips */}
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] cursor-pointer hover:bg-[var(--color-bg-emphasis)] transition-colors"
+          onClick={() => onOpenChange(true)}
+        >
+          {tag}
+          <button
+            onMouseDown={(e) => { e.stopPropagation(); onRemoveTag(tag); }}
+            className="hover:text-[var(--color-text)] transition-colors leading-none"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+
+      {/* Add tag button */}
+      <button
+        onClick={() => onOpenChange(true)}
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs text-[var(--color-text-muted)]/60 border border-dashed border-[var(--color-border)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] transition-colors"
+      >
+        <Plus size={10} />
+        Add tag
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 z-50 w-56 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg overflow-hidden">
+          {/* Search input */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)]">
+            <MagnifyingGlass size={13} className="text-[var(--color-text-muted)] shrink-0" />
+            <input
+              ref={inputRef}
+              value={tagSearch}
+              onChange={(e) => onTagSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") { e.stopPropagation(); onOpenChange(false); }
+                if (e.key === "Enter" && showCreate) { e.preventDefault(); onCreateTag(); }
+              }}
+              placeholder="Buscar tag…"
+              className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none"
+            />
+          </div>
+
+          {/* Tag list */}
+          <div className="max-h-48 overflow-y-auto py-1">
+            {sorted.map((tag) => {
+              const assigned = tags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onMouseDown={(e) => { e.preventDefault(); onToggleTag(tag); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
+                >
+                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors ${assigned ? "bg-[var(--color-stash)] border-[var(--color-stash)]" : "border-[var(--color-border)]"}`}>
+                    {assigned && <Check size={9} weight="bold" className="text-white" />}
+                  </span>
+                  {tag}
+                </button>
+              );
+            })}
+
+            {sorted.length === 0 && !showCreate && (
+              <p className="px-3 py-2 text-xs text-[var(--color-text-muted)]/60">Sin resultados</p>
+            )}
+
+            {/* Create option */}
+            {showCreate && (
+              <>
+                {sorted.length > 0 && <div className="my-1 h-px bg-[var(--color-border)]" />}
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); onCreateTag(); }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
+                >
+                  <Plus size={12} className="text-[var(--color-stash)]" />
+                  Crear &ldquo;{tagSearch.trim()}&rdquo;
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

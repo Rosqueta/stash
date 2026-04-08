@@ -20,23 +20,34 @@ function valueToHTML(str: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  return escaped.replace(
-    /\{\{(\w+)\}\}/g,
-    (_, name) =>
+  return escaped
+    .replace(/\{\{(\w+)\}\}/g, (_, name) =>
       `<span data-var="${name}" contenteditable="false">${name}</span>`
-  );
+    )
+    .replace(/\n/g, "<br>");
 }
 
 function htmlToValue(el: HTMLElement): string {
   let result = "";
+  let firstBlock = true;
   el.childNodes.forEach((node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       result += node.textContent ?? "";
-    } else if (node instanceof HTMLElement && node.dataset.var !== undefined) {
-      result += `{{${node.dataset.var}}}`;
     } else if (node instanceof HTMLElement) {
-      result += htmlToValue(node);
+      if (node.tagName === "BR") {
+        result += "\n";
+      } else if (node.dataset.var !== undefined) {
+        result += `{{${node.dataset.var}}}`;
+      } else if (node.tagName === "DIV" || node.tagName === "P") {
+        if (!firstBlock) result += "\n";
+        result += htmlToValue(node);
+        firstBlock = false;
+        return;
+      } else {
+        result += htmlToValue(node);
+      }
     }
+    firstBlock = false;
   });
   return result;
 }
