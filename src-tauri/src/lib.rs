@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tokio::fs;
 
 // ── Data model ────────────────────────────────────────────────────────────────
@@ -25,11 +26,13 @@ pub struct Prompt {
     pub collection_id: Option<String>,
     pub tags: Vec<String>,
     pub model_target: String,
-    pub is_favorite: bool,
+    #[serde(default, alias = "isFavorite")]
+    pub is_pinned: bool,
     pub created_at: i64,
     pub updated_at: i64,
     pub last_used_at: Option<i64>,
     pub use_count: u64,
+    #[serde(default)]
     pub versions: Vec<PromptVersion>,
     pub notes: String,
 }
@@ -130,7 +133,6 @@ async fn save_collection(app: AppHandle, collection: Collection) -> Result<(), S
 async fn delete_collection(app: AppHandle, id: String) -> Result<(), String> {
     let mut data = read_data(&app).await?;
     data.collections.retain(|c| c.id != id);
-    // Detach prompts from deleted collection
     for p in data.prompts.iter_mut() {
         if p.collection_id.as_deref() == Some(&id) {
             p.collection_id = None;
@@ -160,6 +162,23 @@ async fn show_window(app: AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .setup(|app| {
+            let shortcut = Shortcut::new(
+                Some(Modifiers::SUPER | Modifiers::SHIFT),
+                Code::KeyP,
+            );
+            let app_handle = app.handle().clone();
+            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+                if event.state() == ShortcutState::Pressed {
+                    if let Some(window) = app_handle.get_webview_window("palette") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            })?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_prompts,
             save_prompt,

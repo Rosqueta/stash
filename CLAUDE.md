@@ -6,7 +6,7 @@ Stash is a minimalist, offline-first macOS app for saving, organizing, and using
 Built with Tauri v2 (Rust backend) + React 19 + TypeScript + Tailwind v4 (frontend).
 
 Core philosophy: prompts are first-class citizens, not text files. Every prompt has structure
-(variables, collection, model target, versions, notes) and is designed to be used, not just stored.
+(variables, collection, model target, notes) and is designed to be used, not just stored.
 
 Reference app: ./scratch/ (local clone of github.com/erictli/scratch) — before making any
 changes, read and study:
@@ -23,6 +23,7 @@ npm run dev          # Start Vite dev server only
 npm run tauri dev    # Run full app in development mode
 npm run build        # Build frontend (tsc + vite)
 npm run tauri build  # Build production app
+npm run tauri icon <file.png>  # Regenerate all icon sizes from a 1024x1024 PNG
 ```
 
 ## Stack
@@ -33,6 +34,7 @@ npm run tauri build  # Build production app
 - Radix UI (dialogs, menus, tooltips)
 - Sonner (toasts)
 - @tauri-apps/plugin-clipboard-manager (copying prompts)
+- @phosphor-icons/react (icons)
 
 NOT used (unlike Scratch): TipTap, Tantivy, dnd-kit, git integration.
 Search is handled in JS over the in-memory prompt list.
@@ -44,7 +46,6 @@ All persistence and clipboard operations go through Tauri commands via `invoke()
 Frontend never reads/writes files directly.
 
 ```typescript
-// Always use invoke for backend operations
 import { invoke } from "@tauri-apps/api/core";
 
 const prompts = await invoke<Prompt[]>("list_prompts");
@@ -55,42 +56,28 @@ await invoke("copy_to_clipboard", { text: resolvedContent });
 ### Data model
 
 ```typescript
-// Core prompt structure
 interface Prompt {
   id: string;                    // UUID
   title: string;
   content: string;               // Raw text with {{variable}} placeholders
   collectionId: string | null;
-  tags: string[];                // Auto-suggested + user-defined
-  modelTarget: ModelTarget;      // "claude-sonnet" | "claude-opus" | "gpt-4o" | "gemini" | "any"
+  tags: string[];
+  modelTarget: string;           // "claude-sonnet" | "claude-opus" | "gpt-4o" | "gemini" | "any"
   isFavorite: boolean;
   createdAt: number;             // Unix timestamp
   updatedAt: number;
   lastUsedAt: number | null;
   useCount: number;
-  versions: PromptVersion[];
   notes: string;
 }
 
-interface PromptVersion {
-  id: string;
-  content: string;
-  createdAt: number;
-  note: string;                  // "Añadí el parámetro de tono"
-  rating: 1 | 2 | 3 | null;    // Quick score: bad / ok / good
-}
+// NOTE: Versioning is out of scope for v1. The Rust struct still has a `versions` field
+// with `#[serde(default)]` for backwards compatibility, but it is not used in the frontend.
 
 interface Collection {
   id: string;
   name: string;
   color: string;                 // Hex — used as dot color in sidebar
-  promptCount: number;
-}
-
-// Variable detection: extract {{variable}} patterns from content
-function extractVariables(content: string): string[] {
-  const matches = content.matchAll(/\{\{(\w+)\}\}/g);
-  return [...new Set([...matches].map(m => m[1]))];
 }
 ```
 
@@ -99,57 +86,116 @@ All data stored in a single `stash.json` file at `{APP_DATA}/stash.json`.
 Structure: `{ prompts: Prompt[], collections: Collection[], version: number }`.
 Never store to localStorage or sessionStorage.
 
-### Context pattern (same as Scratch's dual context)
+### Context pattern (dual context, same as Scratch)
 
 ```typescript
-// Separate data and actions for performance
 const PromptsDataContext = createContext<PromptsData>(...)
 const PromptsActionsContext = createContext<PromptsActions>(...)
 
-// Consumers only re-render when their slice changes
 function usePromptsData() { return useContext(PromptsDataContext) }
 function usePromptsActions() { return useContext(PromptsActionsContext) }
 ```
+
+## Layout
+
+3-panel layout:
+
+| Panel | Width | Component |
+|---|---|---|
+| Sidebar | 220px | `collections/Sidebar.tsx` |
+| Prompt list | 284px | `prompt-list/PromptList.tsx` |
+| Prompt detail | flex: 1 | `prompt-detail/PromptDetail.tsx` |
+
+Full-width titlebar strip (`h-[52px]`) sits above the 3 panels in `App.tsx` — never add per-panel drag regions, only the top-level strip uses `data-tauri-drag-region`.
 
 ## Key Components
 
 ```
 src/
+  assets/
+    empty-state-prompts.png     # Illustration for empty prompt list
+    icono.png                   # Source app icon (1024x1024, rounded corners)
   components/
-    global-palette/      # ⌘⇧P overlay — search + warm up trigger
-    warm-up/             # Variable fill modal before copying
-    prompt-list/         # Sidebar list of prompts
-    prompt-detail/       # Right panel — content, versions, notes
-    collections/         # Sidebar collection tree
-    settings/            # Settings page
-    ui/                  # Button, Input, Tooltip, AlertDialog, Toaster
-    icons/               # SVG icon components
+    search/
+      SearchSpotlight.tsx       # ⌘F search overlay
+    prompt-list/
+      PromptList.tsx            # Center panel — filtered prompt list + empty state
+      PromptCard.tsx            # Single prompt row (title + optional star)
+    prompt-detail/
+      PromptDetail.tsx          # Right panel — title, content, notes, actions
+      VariableEditor.tsx        # contenteditable editor with inline {{variable}} chips
+    collections/
+      Sidebar.tsx               # Left panel — collections, quick views, new prompt
+    ui/
+      index.tsx                 # IconButton, Tooltip (Radix-based)
   context/
-    PromptsContext.tsx   # Dual context (data + actions)
-    ThemeContext.tsx      # Light/dark/system
+    PromptsContext.tsx          # Dual context (data + actions)
+    ThemeContext.tsx
   services/
-    storage.ts           # invoke() wrappers for all backend calls
-    variables.ts         # extractVariables(), resolveVariables()
-    autoTag.ts           # Keyword-based tag suggestions
+    storage.ts                  # invoke() wrappers for all backend calls
   types/
-    prompt.ts            # All TypeScript interfaces
+    prompt.ts                   # All TypeScript interfaces
   lib/
-    platform.ts          # mod key detection (Cmd vs Ctrl)
-    utils.ts             # clsx helpers, etc.
+    utils.ts                    # cn() helper (clsx + tailwind-merge)
 ```
 
-## Coding Conventions (same as Scratch)
+## VariableEditor
 
-- Clean, minimal code. No commented-out code or TODOs in production.
-- Proper React patterns: contexts, hooks, memoization.
-- Type-safe TypeScript throughout — no `any`.
-- `React.memo` for list item components (PromptCard).
-- `useCallback`/`useMemo` for performance-critical paths.
-- Debounces: search 150ms, auto-save 300ms.
-- All backend operations async with error handling + sonner toast feedback.
-- Use `clsx` / `tailwind-merge` for conditional classes.
+`src/components/prompt-detail/VariableEditor.tsx` — contenteditable div that renders
+`{{variable}}` patterns as inline chip `<span data-var="name">` elements.
 
-## Theming System (copied from Scratch)
+### Interactions
+- **Single click on chip** → enters inline edit mode. Cursor placed at click position via `document.caretRangeFromPoint`. Enter/Escape/blur confirm or cancel.
+- **Double click on chip** → confirms any pending edit, then shows "Quitar variable" popover.
+- **Select plain text** → shows "Convertir en variable" popover above selection.
+- **Select text containing a chip** → no popover (avoid ambiguity).
+
+### Key functions
+```typescript
+valueToHTML(str)   // converts "hello {{name}}" → HTML with chip spans
+htmlToValue(el)    // reads DOM back to "hello {{name}}"
+```
+
+### CSS (App.css)
+```css
+[data-var] {
+  display: inline;
+  background: var(--color-bg-muted);
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: color-mix(in srgb, var(--color-text-muted) 50%, transparent);
+  pointer-events: none;
+}
+```
+
+## Empty States
+
+### Prompt list (center panel)
+- Shown when filtered list is empty (all views including collections).
+- Illustration: `src/assets/empty-state-prompts.png` at `w-28 h-28`.
+- Text: "Tu stash está vacío" + "Crea tu primer prompt y accede a él desde cualquier app."
+- Button: "Nuevo prompt ⌘N" — creates prompt assigned to active collection.
+
+### Prompt detail (right panel)
+- Shown when no prompt is selected.
+- Icon: `<Notepad size={48} weight="thin" />` in placeholder color.
+- Text: "Selecciona un prompt / o crea uno nuevo para empezar" in placeholder color.
+- Placeholder color: `color-mix(in srgb, var(--color-text-muted) 50%, transparent)`.
+
+## Icon conventions
+
+- **Prompt concept** (sidebar item, search results, detail empty state): `Notepad` from @phosphor-icons/react
+- **Notas section divider** in PromptDetail: `Note`
+- **Collections**: `Folder` / `FolderOpen` colored with `collection.color`
+- **Favorites**: `Heart`
+- **Actions**: `Star` (favorite), `Copy` (copy), `Trash` (delete)
+- All icons `weight="regular"` unless specified. Never change weight on selection/active state.
+
+## Theming System
 
 CSS custom properties in `src/App.css`, registered with Tailwind `@theme`:
 
@@ -158,14 +204,12 @@ CSS custom properties in `src/App.css`, registered with Tailwind `@theme`:
   --color-bg: #ffffff;
   --color-bg-secondary: #fafaf9;
   --color-bg-muted: rgba(28, 25, 23, 0.06);
+  --color-bg-emphasis: rgba(28, 25, 23, 0.09);
   --color-text: #1c1917;
   --color-text-muted: #78716c;
   --color-border: rgba(28, 25, 23, 0.08);
-  --color-accent: #1c1917;
-  /* Stash accent — squirrel amber */
-  --color-stash: #d97706;
+  --color-stash: #d97706;   /* amber brand */
 }
-
 .dark {
   --color-bg: rgb(22, 20, 19);
   --color-text: #fafaf9;
@@ -176,7 +220,14 @@ CSS custom properties in `src/App.css`, registered with Tailwind `@theme`:
 
 Always use CSS variables for colors, never hardcode hex in components.
 
-## macOS Native Details (critical — copy from Scratch exactly)
+## Typography & Buttons
+
+- All interactive items (buttons, sidebar items, prompt cards): `font-medium`.
+- Labels/section headers (e.g. "Colecciones", "NOTAS"): `font-semibold uppercase tracking-wider`.
+- Prompt title in detail: `text-2xl font-bold`.
+- Placeholders: `placeholder:text-[var(--color-text-muted)]/50`.
+
+## macOS Native Details
 
 In `src-tauri/tauri.conf.json`:
 ```json
@@ -194,114 +245,47 @@ In `src-tauri/tauri.conf.json`:
 }
 ```
 
-`visible: false` on launch prevents flash — show window after data loads.
+`visible: false` on launch — window shown via `show_window` Tauri command after data loads.
 
-## Global Palette (⌘⇧P)
+After changing `src-tauri/icons/` (e.g. via `npm run tauri icon`), touch `src-tauri/src/lib.rs`
+to force Cargo to relink and embed the new icon.
 
-The most important UX surface. Implementation based on Scratch's CommandPalette:
+## Sidebar
 
-- Fixed overlay `z-50`, centered, max-w-2xl
-- `animate-slide-down` on open
-- Input debounced 150ms, filters prompt list by title + content
-- Keyboard: ↑↓ navigate, Enter select, Escape close
-- `scrollIntoView({ block: "center", behavior: "smooth" })` on selection change
-- If selected prompt has variables → opens Warm Up modal
-- If no variables → copies directly + sonner toast "Copiado ✓"
-- Shortcut hint shown at bottom: ⌘⇧P
+- "Nuevo prompt" button: amber (`--color-stash`), creates prompt assigned to active collection (not Favorites).
+- "Buscar" button: opens SearchSpotlight overlay.
+- Collections: inline creation (folder icon + transparent input at top of list), saved on Enter, dismissed on blur/Escape.
+- New collections prepend to the list (not append).
 
-## Warm Up Modal
+## SearchSpotlight (⌘F)
 
-Shown when a prompt has `{{variables}}`. Key interaction: variables are **inline editable chips** directly in the prompt text — NOT a separate form with inputs. The user edits inside the text, always seeing full context.
-
-### Parsing
-Split the prompt content into segments before rendering:
-```typescript
-type Segment = { type: 'text'; value: string } | { type: 'var'; name: string };
-
-function parseSegments(content: string): Segment[] {
-  const parts = content.split(/(\{\{\w+\}\})/g);
-  return parts.map(p => {
-    const match = p.match(/^\{\{(\w+)\}\}$/);
-    return match ? { type: 'var', name: match[1] } : { type: 'text', value: p };
-  });
-}
-```
-
-### Rendering
-- `text` segments → plain text nodes (preserve line breaks with `<br>`)
-- `var` segments → `<VarChip>` component with three states:
-  - **empty** — amber background, variable name in italic, cursor pointer
-  - **editing** — inline `<input>` at the same position, amber border, no background
-  - **filled** — green background, value text + green tick, cursor pointer to re-edit
-
-### State
-```typescript
-const [values, setValues] = useState<Record<string, string>>({});
-const [editingKey, setEditingKey] = useState<string | null>(null); // "varname_segmentIndex"
-```
-
-Repeated variables (e.g. `{{tono}}` twice) share the same slot in `values` — editing one updates all chips with that name simultaneously.
-
-### Behaviour
-- On open: auto-focus first empty variable
-- Enter / Tab: confirm value, jump to next empty variable
-- Escape: cancel edit without losing previous value
-- Copy button: always active — unfilled variables stay as `{{variable}}` in output
-- Footer shows: "2 de 3 variables" → "Todo listo ✓" when all filled
-
-### Variable resolution
-```typescript
-function resolveVariables(content: string, values: Record<string, string>): string {
-  return content.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] ?? `{{${key}}}`);
-}
-```
-
-## Auto-tagging
-
-On prompt save, suggest tags based on keyword matching (no AI required):
-
-```typescript
-const TAG_RULES: Record<string, string[]> = {
-  "código":    ["función", "código", "debug", "react", "typescript", "python", "refactor", "test"],
-  "redacción": ["email", "redacta", "escribe", "artículo", "post", "newsletter", "copy"],
-  "diseño":    ["componente", "ui", "ux", "figma", "diseño", "layout", "color"],
-  "análisis":  ["analiza", "resume", "extrae", "informe", "datos", "métricas"],
-  "reunión":   ["transcripción", "reunión", "meeting", "agenda", "acta"],
-};
-
-function suggestTags(content: string): string[] { ... }
-```
-
-## Versioning
-
-- Every save creates a new version if content changed.
-- Max 10 versions per prompt (oldest pruned automatically).
-- Each version: `{ id, content, createdAt, note, rating }`.
-- Version note and rating are set by user after saving, not required.
-- UI shows versions list with rating dots (● = good, ○ = empty, ✕ = bad).
+- Overlay with search input, filters prompts by title + content (debounced 150ms).
+- Enter: copies prompt + selects it in main panel.
+- ⌘Enter: selects prompt without copying.
+- Escape: closes.
+- Footer hints: `↵ Copiar`, `⌘↵ Abrir`, `Esc Cerrar`.
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
-| ⌘⇧P | Open global palette (from any app) |
 | ⌘N | New prompt |
-| ⌘F | Search in sidebar |
-| ⌘, | Settings |
-| ⌘\ | Toggle sidebar |
+| ⌘F | Open search spotlight |
 | ↑/↓ | Navigate prompt list |
-| Enter | Open selected prompt |
-| Escape | Close modal/palette |
+| Escape | Close modal/overlay |
 
-## Referencias
+## Out of scope for v1
 
-- `./scratch/` — repo local de referencia. Leer antes de empezar, no modificar.
-- Tauri v2 docs — https://v2.tauri.app
-- plugin-global-shortcut — registro del shortcut global ⌘⇧P
-- plugin-clipboard-manager — copiar al portapapeles desde Rust
+- Versioning (removed — Rust struct retains field with `#[serde(default)]` for compat)
+- Global palette ⌘⇧P (Fase 2)
+- Warm Up modal (Fase 2)
+- Auto-tagging (Fase 2)
+- Settings page (Fase 3)
+- Onboarding (Fase 3)
+- Export / import (Fase 3)
 
 ## Releasing
 
 1. Bump version in `package.json` and `src-tauri/tauri.conf.json`
-2. Commit to `main`, tag and push: `git tag v0.1.0 && git push origin v0.1.0`
+2. Commit to `main`, tag: `git tag v0.1.0 && git push origin v0.1.0`
 3. Build: `npm run tauri build`

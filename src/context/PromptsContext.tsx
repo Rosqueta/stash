@@ -30,7 +30,8 @@ interface PromptsActions {
   deletePrompt: (id: string) => Promise<void>;
   saveCollection: (collection: Collection) => Promise<void>;
   deleteCollection: (id: string) => Promise<void>;
-  copyPrompt: (prompt: Prompt) => Promise<void>;
+  copyPrompt: (prompt: Prompt, silent?: boolean, resolvedContent?: string) => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const PromptsDataContext = createContext<PromptsData | null>(null);
@@ -47,25 +48,30 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [p, c] = await Promise.all([
-          storage.listPrompts(),
-          storage.listCollections(),
-        ]);
-        setPrompts(p);
-        setCollections(c);
-      } catch (e) {
-        toast.error("Error al cargar datos");
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-        await showWindow();
-      }
+  const loadData = useCallback(async (showMainWindow = false) => {
+    try {
+      const [p, c] = await Promise.all([
+        storage.listPrompts(),
+        storage.listCollections(),
+      ]);
+      setPrompts(p);
+      setCollections(c);
+    } catch (e) {
+      toast.error("Error al cargar datos");
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+      if (showMainWindow) await showWindow();
     }
-    void load();
   }, []);
+
+  useEffect(() => {
+    void loadData(true);
+  }, [loadData]);
+
+  const refresh = useCallback(async () => {
+    await loadData(false);
+  }, [loadData]);
 
   const setSearchQuery = useCallback((q: string) => {
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
@@ -94,7 +100,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     await storage.saveCollection(collection);
     setCollections((prev) => {
       const idx = prev.findIndex((c) => c.id === collection.id);
-      if (idx === -1) return [...prev, collection];
+      if (idx === -1) return [collection, ...prev];
       const next = [...prev];
       next[idx] = collection;
       return next;
@@ -112,9 +118,9 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     setActiveCollectionId((prev) => (prev === id ? null : prev));
   }, []);
 
-  const copyPrompt = useCallback(async (prompt: Prompt) => {
+  const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {
     try {
-      await storage.copyToClipboard(prompt.content);
+      await storage.copyToClipboard(resolvedContent ?? prompt.content);
       const now = Date.now();
       const updated: Prompt = {
         ...prompt,
@@ -129,7 +135,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         next[idx] = updated;
         return next;
       });
-      toast.success("Copiado ✓");
+      if (!silent) toast.success("Copiado ✓");
     } catch {
       toast.error("Error al copiar");
     }
@@ -157,6 +163,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       saveCollection,
       deleteCollection,
       copyPrompt,
+      refresh,
     }),
     [
       setSearchQuery,
@@ -165,6 +172,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       saveCollection,
       deleteCollection,
       copyPrompt,
+      refresh,
     ]
   );
 

@@ -5,14 +5,6 @@ export type ModelTarget =
   | "gemini"
   | "any";
 
-export interface PromptVersion {
-  id: string;
-  content: string;
-  createdAt: number;
-  note: string;
-  rating: 1 | 2 | 3 | null;
-}
-
 export interface Prompt {
   id: string;
   title: string;
@@ -20,12 +12,11 @@ export interface Prompt {
   collectionId: string | null;
   tags: string[];
   modelTarget: ModelTarget;
-  isFavorite: boolean;
+  isPinned: boolean;
   createdAt: number;
   updatedAt: number;
   lastUsedAt: number | null;
   useCount: number;
-  versions: PromptVersion[];
   notes: string;
 }
 

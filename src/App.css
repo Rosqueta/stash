@@ -67,11 +67,42 @@ body {
   user-select: none;
 }
 
+/* Palette window — transparent background so border-radius shows */
+html.palette,
+html.palette body,
+html.palette #root {
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+html.palette #root {
+  clip-path: inset(0 round 12px);
+}
+
 /* Allow text selection in content areas */
 textarea,
 input,
 .selectable {
   user-select: text;
+}
+
+/* Variable chips in the content editor */
+[data-var] {
+  display: inline;
+  background: var(--color-bg-muted);
+  color: var(--color-text);
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Placeholder for contenteditable */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: color-mix(in srgb, var(--color-text-muted) 50%, transparent);
+  pointer-events: none;
 }
 
 /* Scrollbar */
@@ -104,4 +135,42 @@ input,
 
 .animate-slide-down {
   animation: slide-down 0.15s ease-out;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Checkmark animation for global palette copy feedback */
+.ring-circle {
+  stroke-dasharray: 82;
+  stroke-dashoffset: 82;
+  transition: stroke-dashoffset 0.38s cubic-bezier(0.4, 0, 0.2, 1) 0.05s;
+}
+.ring-check {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  transition: stroke-dashoffset 0.28s ease 0.33s;
+}
+.checkmark-active .ring-circle,
+.checkmark-active .ring-check {
+  stroke-dashoffset: 0;
+}
+
+/* Global palette — closing animation */
+.palette-closing {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }

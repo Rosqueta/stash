@@ -4,21 +4,17 @@ import {
   useRef,
   useState,
 } from "react";
+import { PushPin, Copy, Trash, Folder, CaretDown, Note, Notepad } from "@phosphor-icons/react";
+import { VariableEditor } from "./VariableEditor";
+import { WarmUp } from "../warm-up/WarmUp";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
-import { parseSegments } from "../../services/variables";
-import { Button } from "../ui";
-import type { ModelTarget, Prompt } from "../../types/prompt";
-
-const MODEL_OPTIONS: { value: ModelTarget; label: string }[] = [
-  { value: "any", label: "Cualquiera" },
-  { value: "claude-sonnet", label: "Claude Sonnet" },
-  { value: "claude-opus", label: "Claude Opus" },
-  { value: "gpt-4o", label: "GPT-4o" },
-  { value: "gemini", label: "Gemini" },
-];
+import { extractVariables } from "../../services/variables";
+import { IconButton, Tooltip } from "../ui";
+import type { Prompt } from "../../types/prompt";
 
 export function PromptDetail() {
-  const { prompts, selectedId } = usePromptsData();
+  const { prompts, selectedId, collections } = usePromptsData();
   const { savePrompt, deletePrompt, copyPrompt } = usePromptsActions();
 
   const prompt = prompts.find((p) => p.id === selectedId) ?? null;
@@ -26,12 +22,17 @@ export function PromptDetail() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [notes, setNotes] = useState("");
-  const [modelTarget, setModelTarget] = useState<ModelTarget>("any");
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [warmUpOpen, setWarmUpOpen] = useState(false);
 
   const saveDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPromptId = useRef<string | null>(null);
+  const latestPrompt = useRef<Prompt | null>(null);
+
+  useEffect(() => {
+    latestPrompt.current = prompt;
+  }, [prompt]);
 
   useEffect(() => {
     if (!prompt) return;
@@ -40,50 +41,32 @@ export function PromptDetail() {
     setTitle(prompt.title);
     setContent(prompt.content);
     setNotes(prompt.notes);
-    setModelTarget(prompt.modelTarget);
-    setIsFavorite(prompt.isFavorite);
+    setIsPinned(prompt.isPinned);
   }, [prompt]);
 
   const scheduleSave = useCallback(
     (patch: Partial<Prompt>) => {
-      if (!prompt) return;
+      if (!latestPrompt.current) return;
       if (saveDebounce.current) clearTimeout(saveDebounce.current);
       saveDebounce.current = setTimeout(() => {
-        const now = Date.now();
-        const hasContentChange =
-          "content" in patch && patch.content !== prompt.content;
-        const newVersion =
-          hasContentChange && prompt.versions.length < 10
-            ? [
-                {
-                  id: crypto.randomUUID(),
-                  content: prompt.content,
-                  createdAt: now,
-                  note: "",
-                  rating: null as null,
-                },
-                ...prompt.versions,
-              ].slice(0, 10)
-            : prompt.versions;
-
+        const basePrompt = latestPrompt.current;
+        if (!basePrompt) return;
         void savePrompt({
-          ...prompt,
+          ...basePrompt,
           ...patch,
-          updatedAt: now,
-          versions: hasContentChange ? newVersion : prompt.versions,
+          updatedAt: Date.now(),
         });
       }, 300);
     },
-    [prompt, savePrompt]
+    [savePrompt]
   );
 
-  const handleContentChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setContent(e.target.value);
-      scheduleSave({ content: e.target.value });
-    },
-    [scheduleSave]
-  );
+  useEffect(() => {
+    return () => {
+      if (saveDebounce.current) clearTimeout(saveDebounce.current);
+      if (notesDebounce.current) clearTimeout(notesDebounce.current);
+    };
+  }, []);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,177 +87,173 @@ export function PromptDetail() {
     [scheduleSave]
   );
 
-  const handleModelChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value as ModelTarget;
-      setModelTarget(val);
-      scheduleSave({ modelTarget: val });
+  const handlePin = useCallback(() => {
+    const next = !isPinned;
+    setIsPinned(next);
+    scheduleSave({ isPinned: next });
+  }, [isPinned, scheduleSave]);
+
+  const handleCollectionChange = useCallback(
+    (collectionId: string | null) => {
+      scheduleSave({ collectionId });
     },
     [scheduleSave]
   );
 
-  const handleFavorite = useCallback(() => {
-    const next = !isFavorite;
-    setIsFavorite(next);
-    scheduleSave({ isFavorite: next });
-  }, [isFavorite, scheduleSave]);
-
   if (!prompt) {
     return (
-      <div className="flex flex-1 items-center justify-center text-[var(--color-text-muted)]">
-        <p className="text-sm">Selecciona un prompt</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4" style={{ color: "color-mix(in srgb, var(--color-text-muted) 50%, transparent)" }}>
+        <Notepad size={48} weight="thin" />
+        <div className="flex flex-col items-center gap-0.5 text-center">
+          <p className="text-sm">Selecciona un prompt</p>
+          <p className="text-sm">o crea uno nuevo para empezar</p>
+        </div>
       </div>
     );
   }
 
-  const segments = parseSegments(content);
+  const activeCollection = collections.find((c) => c.id === prompt.collectionId) ?? null;
 
   return (
-    <div className="flex flex-col flex-1 h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-[var(--color-border)] shrink-0">
+    <div className="relative flex flex-col flex-1 h-full overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4">
+
+        {/* Collection + actions row */}
+        <div className="flex items-center justify-between">
+          {/* Collection selector */}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors group focus:outline-none">
+                <Folder
+                  size={14}
+                  weight="regular"
+                  style={activeCollection ? { color: activeCollection.color } : undefined}
+                />
+                <span>
+                  {activeCollection ? activeCollection.name : "Sin colección"}
+                </span>
+                <CaretDown size={10} className="opacity-0 group-hover:opacity-60 transition-opacity" />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                side="bottom"
+                align="start"
+                sideOffset={4}
+                className="z-50 min-w-[180px] rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg p-1 animate-in fade-in-0 zoom-in-95"
+              >
+                <DropdownMenu.Item
+                  onSelect={() => handleCollectionChange(null)}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-muted)] cursor-pointer outline-none hover:bg-[var(--color-bg-muted)] transition-colors"
+                >
+                  <Folder size={14} weight="regular" />
+                  Sin colección
+                </DropdownMenu.Item>
+                {collections.length > 0 && (
+                  <DropdownMenu.Separator className="my-1 h-px bg-[var(--color-border)]" />
+                )}
+                {collections.map((c) => (
+                  <DropdownMenu.Item
+                    key={c.id}
+                    onSelect={() => handleCollectionChange(c.id)}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text)] cursor-pointer outline-none hover:bg-[var(--color-bg-muted)] transition-colors"
+                  >
+                    <Folder size={14} weight="regular" style={{ color: c.color }} />
+                    {c.name}
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-1">
+            <Tooltip label={isPinned ? "Despinear" : "Pinear"}>
+              <IconButton onClick={handlePin}>
+                <PushPin
+                  size={18}
+                  weight="regular"
+                  className={isPinned ? "text-[var(--color-stash)]" : ""}
+                />
+              </IconButton>
+            </Tooltip>
+            <Tooltip label="Copiar prompt">
+              <IconButton
+                onClick={() => {
+                  if (extractVariables(content).length > 0) {
+                    setWarmUpOpen(true);
+                  } else {
+                    void copyPrompt(prompt);
+                  }
+                }}
+              >
+                <Copy size={18} weight="regular" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip label="Eliminar prompt">
+              <IconButton
+                onClick={() => deletePrompt(prompt.id)}
+                className="hover:text-red-500"
+              >
+                <Trash size={18} weight="regular" />
+              </IconButton>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Title */}
         <input
           value={title}
           onChange={handleTitleChange}
-          placeholder="Título del prompt"
-          className="flex-1 text-lg font-semibold bg-transparent text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none"
+          placeholder="Sin título"
+          className="w-full text-2xl font-bold bg-transparent text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-tight"
         />
-        <button
-          onClick={handleFavorite}
-          className="text-xl transition-colors"
-          title="Favorito"
-        >
-          <span className={isFavorite ? "text-[var(--color-stash)]" : "text-[var(--color-text-muted)]"}>
-            ★
+
+        {/* Content */}
+        <VariableEditor
+          value={content}
+          onChange={(val) => { setContent(val); scheduleSave({ content: val }); }}
+          placeholder="Escribe tu prompt aquí…"
+        />
+
+
+        {/* Notes divider */}
+        <div className="flex items-center gap-3 mt-2">
+          <div className="flex-1 h-px bg-[var(--color-border)]" />
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+            <Note size={12} weight="regular" />
+            Notas
           </span>
-        </button>
-        <select
-          value={modelTarget}
-          onChange={handleModelChange}
-          className="text-xs bg-transparent text-[var(--color-text-muted)] border border-[var(--color-border)] rounded px-2 py-1 focus:outline-none"
-        >
-          {MODEL_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <Button
-          size="sm"
-          onClick={() => copyPrompt(prompt)}
-          className="bg-[var(--color-stash)] text-white hover:opacity-90"
-        >
-          Copiar
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => deletePrompt(prompt.id)}
-        >
-          Eliminar
-        </Button>
-      </div>
-
-      {/* Content area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-6">
-        {/* Content editor */}
-        <section>
-          <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-            Contenido
-          </label>
-          <textarea
-            value={content}
-            onChange={handleContentChange}
-            placeholder="Escribe tu prompt aquí... Usa {{variable}} para añadir variables."
-            className="w-full min-h-[160px] resize-none bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none leading-relaxed"
-          />
-          {/* Variable preview */}
-          {segments.some((s) => s.type === "var") && (
-            <div className="mt-3 p-3 rounded-lg bg-[var(--color-bg-muted)] text-sm leading-relaxed">
-              {segments.map((seg, i) =>
-                seg.type === "text" ? (
-                  <span key={i} className="text-[var(--color-text)]">
-                    {seg.value}
-                  </span>
-                ) : (
-                  <span
-                    key={i}
-                    className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 mx-0.5"
-                  >
-                    {`{{${seg.name}}}`}
-                  </span>
-                )
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* Versions */}
-        {prompt.versions.length > 0 && (
-          <section>
-            <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-              Versiones ({prompt.versions.length})
-            </label>
-            <div className="space-y-1">
-              {prompt.versions.map((v, i) => (
-                <div
-                  key={v.id}
-                  className="flex items-start gap-3 p-2 rounded-md hover:bg-[var(--color-bg-muted)] transition-colors"
-                >
-                  <span className="shrink-0 text-xs text-[var(--color-text-muted)] w-5 text-right">
-                    v{prompt.versions.length - i}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-[var(--color-text)] line-clamp-2 leading-relaxed">
-                      {v.content.slice(0, 120)}
-                      {v.content.length > 120 ? "…" : ""}
-                    </p>
-                    {v.note && (
-                      <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
-                        {v.note}
-                      </p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
-                    {new Date(v.createdAt).toLocaleDateString("es-ES", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                  <RatingDots rating={v.rating} />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+          <div className="flex-1 h-px bg-[var(--color-border)]" />
+        </div>
 
         {/* Notes */}
-        <section>
-          <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-            Notas
-          </label>
-          <textarea
-            value={notes}
-            onChange={handleNotesChange}
-            placeholder="Notas sobre este prompt..."
-            className="w-full min-h-[80px] resize-none bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none leading-relaxed"
-          />
-        </section>
+        <textarea
+          value={notes}
+          onChange={handleNotesChange}
+          placeholder="Notas sobre este prompt…"
+          className="w-full min-h-[80px] resize-none bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-relaxed selectable"
+        />
       </div>
-    </div>
-  );
-}
 
-function RatingDots({ rating }: { rating: 1 | 2 | 3 | null }) {
-  if (!rating) return null;
-  const colors = ["", "text-red-400", "text-yellow-400", "text-green-400"];
-  const labels = ["", "Malo", "Regular", "Bueno"];
-  return (
-    <span
-      className={`shrink-0 text-xs ${colors[rating]}`}
-      title={labels[rating]}
-    >
-      ●
-    </span>
+      {/* Warm Up modal */}
+      {warmUpOpen && prompt && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setWarmUpOpen(false); }}
+        >
+          <div className="w-full max-w-lg mx-6 bg-[var(--color-bg)] rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden max-h-[80vh] flex flex-col">
+            <WarmUp
+              prompt={{ ...prompt, content }}
+              onCopy={(resolved) => {
+                void copyPrompt(prompt, false, resolved);
+                setWarmUpOpen(false);
+              }}
+              onClose={() => setWarmUpOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

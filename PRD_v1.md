@@ -29,6 +29,7 @@ Stash es la primera app macOS diseñada específicamente para gestionar prompts 
 - Ejecución directa contra APIs de IA
 - Import desde URLs externas
 - Extensión de navegador
+- Versiones de prompts (historial de cambios, notas por versión, rating) — descartado en v1, posible en v2
 
 ---
 
