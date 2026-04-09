@@ -213,6 +213,7 @@ describe("PromptDetail tags", () => {
     await selectPrompt(user, "Prompt A");
     await openTagEditor(user);
     await user.click(screen.getByLabelText("Eliminar tag creative"));
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
     await flushAsyncWork();
 
     await waitFor(() => {
@@ -240,6 +241,7 @@ describe("PromptDetail tags", () => {
     await user.click(screen.getByLabelText("Quitar tag creative"));
     await openTagEditor(user);
     await user.click(screen.getByLabelText("Eliminar tag creative"));
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
     await flushAsyncWork();
 
     expect(mockPrompts.map((prompt) => prompt.tags)).toEqual([
@@ -255,24 +257,15 @@ describe("PromptDetail tags", () => {
     expect(screen.queryByText("creative")).not.toBeInTheDocument();
   });
 
-  it("permite deshacer el borrado global de una etiqueta", async () => {
+  it("pide confirmación y cancela el borrado global de una etiqueta", async () => {
     const user = userEvent.setup();
     render(<TestApp />);
 
     await selectPrompt(user, "Prompt A");
     await openTagEditor(user);
     await user.click(screen.getByLabelText("Eliminar tag creative"));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
     await flushAsyncWork();
-
-    const latestCall = toastSuccessMock.mock.calls[toastSuccessMock.mock.calls.length - 1];
-    const options = latestCall?.[1];
-    const undoAction = (options as { action?: { onClick?: () => Promise<void> } } | undefined)?.action?.onClick;
-
-    expect(undoAction).toBeTypeOf("function");
-
-    await act(async () => {
-      await undoAction?.();
-    });
 
     expect(mockPrompts.map((prompt) => prompt.tags)).toEqual([
       ["creative", "ux"],

@@ -151,10 +151,8 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   }, [prompts]);
 
   const deleteTag = useCallback(async (name: string) => {
-    const snapshot = prompts
-      .filter((p) => p.tags.includes(name))
-      .map((p) => ({ ...p, tags: [...p.tags] }));
-    const updated = snapshot.map((p) => ({
+    const affected = prompts.filter((p) => p.tags.includes(name));
+    const updated = affected.map((p) => ({
       ...p,
       tags: p.tags.filter((t) => t !== name),
     }));
@@ -162,18 +160,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     setPrompts((prev) =>
       prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
     );
-    toast.success(`Tag "${name}" eliminado`, {
-      action: {
-        label: "Deshacer",
-        onClick: async () => {
-          await Promise.all(snapshot.map((p) => storage.savePrompt(p)));
-          setPrompts((prev) =>
-            prev.map((p) => snapshot.find((s) => s.id === p.id) ?? p)
-          );
-        },
-      },
-      duration: 3000,
-    });
+    toast.success(`Tag "${name}" eliminada`);
   }, [prompts]);
 
   const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {
