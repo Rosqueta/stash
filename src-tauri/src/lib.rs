@@ -102,7 +102,20 @@ async fn read_data(app: &AppHandle) -> Result<StashData, String> {
         return Ok(StashData { version: 1, ..Default::default() });
     }
     let raw = fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
-    serde_json::from_str(&raw).map_err(|e| e.to_string())
+    match serde_json::from_str::<StashData>(&raw) {
+        Ok(data) => Ok(data),
+        Err(primary_err) => {
+            // Recovery path for files with trailing garbage after a valid JSON payload.
+            let mut stream = serde_json::Deserializer::from_str(&raw).into_iter::<StashData>();
+            if let Some(Ok(recovered)) = stream.next() {
+                // Normalize file contents so subsequent reads/writes are stable.
+                write_data(app, &recovered).await?;
+                Ok(recovered)
+            } else {
+                Err(primary_err.to_string())
+            }
+        }
+    }
 }
 
 async fn write_data(app: &AppHandle, data: &StashData) -> Result<(), String> {

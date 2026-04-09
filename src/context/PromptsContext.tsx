@@ -31,7 +31,13 @@ interface PromptsActions {
   saveCollection: (collection: Collection) => Promise<void>;
   deleteCollection: (id: string) => Promise<void>;
   copyPrompt: (prompt: Prompt, silent?: boolean, resolvedContent?: string) => Promise<void>;
+  renameTag: (oldName: string, newName: string) => Promise<void>;
+  deleteTag: (name: string) => Promise<void>;
   refresh: () => Promise<void>;
+}
+
+function dedupeTags(tags: string[]) {
+  return tags.filter((tag, index) => tags.indexOf(tag) === index);
 }
 
 const PromptsDataContext = createContext<PromptsData | null>(null);
@@ -79,14 +85,20 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const savePrompt = useCallback(async (prompt: Prompt) => {
-    await storage.savePrompt(prompt);
-    setPrompts((prev) => {
-      const idx = prev.findIndex((p) => p.id === prompt.id);
-      if (idx === -1) return [prompt, ...prev];
-      const next = [...prev];
-      next[idx] = prompt;
-      return next;
-    });
+    try {
+      await storage.savePrompt(prompt);
+      setPrompts((prev) => {
+        const idx = prev.findIndex((p) => p.id === prompt.id);
+        if (idx === -1) return [prompt, ...prev];
+        const next = [...prev];
+        next[idx] = prompt;
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("No se pudo guardar el prompt");
+      throw e;
+    }
   }, []);
 
   const deletePrompt = useCallback(async (id: string) => {
@@ -97,14 +109,20 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveCollection = useCallback(async (collection: Collection) => {
-    await storage.saveCollection(collection);
-    setCollections((prev) => {
-      const idx = prev.findIndex((c) => c.id === collection.id);
-      if (idx === -1) return [collection, ...prev];
-      const next = [...prev];
-      next[idx] = collection;
-      return next;
-    });
+    try {
+      await storage.saveCollection(collection);
+      setCollections((prev) => {
+        const idx = prev.findIndex((c) => c.id === collection.id);
+        if (idx === -1) return [collection, ...prev];
+        const next = [...prev];
+        next[idx] = collection;
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("No se pudo guardar la colección");
+      throw e;
+    }
   }, []);
 
   const deleteCollection = useCallback(async (id: string) => {
@@ -117,6 +135,46 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     );
     setActiveCollectionId((prev) => (prev === id ? null : prev));
   }, []);
+
+  const renameTag = useCallback(async (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    const affected = prompts.filter((p) => p.tags.includes(oldName));
+    const updated = affected.map((p) => ({
+      ...p,
+      tags: dedupeTags(p.tags.map((t) => (t === oldName ? trimmed : t))),
+    }));
+    await Promise.all(updated.map((p) => storage.savePrompt(p)));
+    setPrompts((prev) =>
+      prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
+    );
+  }, [prompts]);
+
+  const deleteTag = useCallback(async (name: string) => {
+    const snapshot = prompts
+      .filter((p) => p.tags.includes(name))
+      .map((p) => ({ ...p, tags: [...p.tags] }));
+    const updated = snapshot.map((p) => ({
+      ...p,
+      tags: p.tags.filter((t) => t !== name),
+    }));
+    await Promise.all(updated.map((p) => storage.savePrompt(p)));
+    setPrompts((prev) =>
+      prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
+    );
+    toast.success(`Tag "${name}" eliminado`, {
+      action: {
+        label: "Deshacer",
+        onClick: async () => {
+          await Promise.all(snapshot.map((p) => storage.savePrompt(p)));
+          setPrompts((prev) =>
+            prev.map((p) => snapshot.find((s) => s.id === p.id) ?? p)
+          );
+        },
+      },
+      duration: 3000,
+    });
+  }, [prompts]);
 
   const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {
     try {
@@ -163,6 +221,8 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       saveCollection,
       deleteCollection,
       copyPrompt,
+      renameTag,
+      deleteTag,
       refresh,
     }),
     [
@@ -172,6 +232,8 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       saveCollection,
       deleteCollection,
       copyPrompt,
+      renameTag,
+      deleteTag,
       refresh,
     ]
   );

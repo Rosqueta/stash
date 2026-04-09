@@ -44,10 +44,14 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
   }, [isAdding]);
 
   const handleNew = useCallback(async () => {
-    const collectionId = activeCollectionId !== "pinned" ? activeCollectionId : null;
-    const prompt = createNewPrompt(collectionId);
-    await savePrompt(prompt);
-    selectPrompt(prompt.id);
+    try {
+      const collectionId = activeCollectionId !== "pinned" ? activeCollectionId : null;
+      const prompt = createNewPrompt(collectionId);
+      await savePrompt(prompt);
+      selectPrompt(prompt.id);
+    } catch {
+      // Error feedback is handled in context actions.
+    }
   }, [activeCollectionId, savePrompt, selectPrompt]);
 
   useEffect(() => {
@@ -68,14 +72,18 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
   const handleAddCollection = useCallback(async () => {
     const name = newCollectionName.trim();
     if (!name) return;
-    const collection: Collection = {
-      id: generateId(),
-      name,
-      color: COLLECTION_COLORS[collections.length % COLLECTION_COLORS.length],
-    };
-    await saveCollection(collection);
-    setNewCollectionName("");
-    setIsAdding(false);
+    try {
+      const collection: Collection = {
+        id: generateId(),
+        name,
+        color: COLLECTION_COLORS[collections.length % COLLECTION_COLORS.length],
+      };
+      await saveCollection(collection);
+      setNewCollectionName("");
+      setIsAdding(false);
+    } catch {
+      // Error feedback is handled in context actions.
+    }
   }, [newCollectionName, collections.length, saveCollection]);
 
   return (

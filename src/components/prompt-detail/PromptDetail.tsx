@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { PushPin, Copy, Trash, Folder, CaretDown, Note, Notepad, MagnifyingGlass, Plus, Check } from "@phosphor-icons/react";
+import { PushPin, Copy, Trash, Folder, CaretDown, Note, Notepad, MagnifyingGlass, Plus, Check, PencilSimple } from "@phosphor-icons/react";
 import { VariableEditor } from "./VariableEditor";
 import { WarmUp } from "../warm-up/WarmUp";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -16,7 +16,7 @@ import type { Prompt } from "../../types/prompt";
 
 export function PromptDetail() {
   const { prompts, selectedId, collections } = usePromptsData();
-  const { savePrompt, deletePrompt, copyPrompt } = usePromptsActions();
+  const { savePrompt, deletePrompt, copyPrompt, renameTag, deleteTag } = usePromptsActions();
 
   const prompt = prompts.find((p) => p.id === selectedId) ?? null;
 
@@ -31,36 +31,68 @@ export function PromptDetail() {
 
   const saveDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentPromptId = useRef<string | null>(null);
-  const latestPrompt = useRef<Prompt | null>(null);
+  const pendingPatchRef = useRef<Partial<Prompt> | null>(null);
+  const currentPromptRef = useRef<Prompt | null>(null);
+
+  const syncFromPrompt = useCallback((nextPrompt: Prompt, localPatch?: Partial<Prompt> | null) => {
+    const merged = { ...nextPrompt, ...localPatch };
+    setTitle(merged.title);
+    setContent(merged.content);
+    setNotes(merged.notes);
+    setTags(merged.tags);
+    setIsPinned(merged.isPinned);
+  }, []);
+
+  const flushSave = useCallback(async (baseOverride?: Prompt | null) => {
+    if (saveDebounce.current) {
+      clearTimeout(saveDebounce.current);
+      saveDebounce.current = null;
+    }
+
+    const patch = pendingPatchRef.current;
+    const base = baseOverride ?? currentPromptRef.current;
+
+    pendingPatchRef.current = null;
+
+    if (base && patch) {
+      await savePrompt({ ...base, ...patch, updatedAt: Date.now() });
+    }
+  }, [savePrompt]);
 
   useEffect(() => {
-    latestPrompt.current = prompt;
-  }, [prompt]);
+    if (!prompt) {
+      currentPromptRef.current = null;
+      setTitle("");
+      setContent("");
+      setNotes("");
+      setTags([]);
+      setIsPinned(false);
+      return;
+    }
 
-  useEffect(() => {
-    if (!prompt) return;
-    if (prompt.id === currentPromptId.current) return;
-    currentPromptId.current = prompt.id;
-    setTitle(prompt.title);
-    setContent(prompt.content);
-    setNotes(prompt.notes);
-    setTags(prompt.tags);
-    setIsPinned(prompt.isPinned);
-  }, [prompt]);
+    const previousPrompt = currentPromptRef.current;
+
+    if (previousPrompt && previousPrompt.id !== prompt.id) {
+      void flushSave(previousPrompt);
+      syncFromPrompt(prompt);
+      currentPromptRef.current = prompt;
+      return;
+    }
+
+    currentPromptRef.current = prompt;
+    syncFromPrompt(prompt, pendingPatchRef.current);
+  }, [prompt, flushSave, syncFromPrompt]);
 
   const scheduleSave = useCallback(
     (patch: Partial<Prompt>) => {
-      if (!latestPrompt.current) return;
+      pendingPatchRef.current = { ...pendingPatchRef.current, ...patch };
       if (saveDebounce.current) clearTimeout(saveDebounce.current);
       saveDebounce.current = setTimeout(() => {
-        const basePrompt = latestPrompt.current;
-        if (!basePrompt) return;
-        void savePrompt({
-          ...basePrompt,
-          ...patch,
-          updatedAt: Date.now(),
-        });
+        const p = pendingPatchRef.current;
+        pendingPatchRef.current = null;
+        saveDebounce.current = null;
+        const latest = currentPromptRef.current;
+        if (latest && p) void savePrompt({ ...latest, ...p, updatedAt: Date.now() });
       }, 300);
     },
     [savePrompt]
@@ -68,10 +100,11 @@ export function PromptDetail() {
 
   useEffect(() => {
     return () => {
-      if (saveDebounce.current) clearTimeout(saveDebounce.current);
       if (notesDebounce.current) clearTimeout(notesDebounce.current);
+      // Flush any pending save on unmount so no data is lost
+      void flushSave();
     };
-  }, []);
+  }, [flushSave]);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,6 +282,16 @@ export function PromptDetail() {
           onToggleTag={handleToggleTag}
           onCreateTag={handleCreateTag}
           onRemoveTag={(tag) => handleToggleTag(tag)}
+          onRenameTag={async (oldName, newName) => {
+            await flushSave();
+            await renameTag(oldName, newName);
+            setTags((prev) => prev.map((t) => t === oldName ? newName.trim() : t));
+          }}
+          onDeleteTag={async (name) => {
+            await flushSave();
+            await deleteTag(name);
+            setTags((prev) => prev.filter((t) => t !== name));
+          }}
         />
 
         {/* Content */}
@@ -312,6 +355,8 @@ interface TagEditorProps {
   onToggleTag: (tag: string) => void;
   onCreateTag: () => void;
   onRemoveTag: (tag: string) => void;
+  onRenameTag: (oldName: string, newName: string) => Promise<void>;
+  onDeleteTag: (name: string) => Promise<void>;
 }
 
 function TagEditor({
@@ -324,23 +369,67 @@ function TagEditor({
   onToggleTag,
   onCreateTag,
   onRemoveTag,
+  onRenameTag,
+  onDeleteTag,
 }: TagEditorProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const [renamingTag, setRenamingTag] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  // Ref to avoid double-confirm (Enter key + subsequent blur)
+  const confirmingRef = useRef(false);
+
+  // Focus rename input whenever renamingTag is set
+  useEffect(() => {
+    if (renamingTag) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [renamingTag]);
+
+  // Cancel rename when dropdown closes
+  useEffect(() => {
+    if (!open) setRenamingTag(null);
+  }, [open]);
+
+  // Focus search input when dropdown opens (only if not renaming)
+  useEffect(() => {
+    if (open && !renamingTag) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [open, renamingTag]);
+
+  const startRename = (tag: string) => {
+    confirmingRef.current = false;
+    setRenamingTag(tag);
+    setRenameValue(tag);
+  };
+
+  const confirmRename = async (currentTag: string, currentValue: string) => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    setRenamingTag(null);
+    const trimmed = currentValue.trim();
+    if (trimmed && trimmed !== currentTag) {
+      await onRenameTag(currentTag, trimmed);
+    }
+    confirmingRef.current = false;
+  };
 
   const filtered = useMemo(() => {
     const q = tagSearch.trim().toLowerCase();
     const pool = [
       ...tags.filter((t) => !globalTags.includes(t)),
       ...globalTags,
-    ].filter((t, i, arr) => arr.indexOf(t) === i); // dedupe
+    ].filter((t, i, arr) => arr.indexOf(t) === i);
     if (!q) return pool;
     return pool.filter((t) => t.includes(q));
   }, [globalTags, tags, tagSearch]);
 
   const showCreate =
     tagSearch.trim().length > 0 &&
-    !filtered.includes(tagSearch.trim().toLowerCase());
+    !filtered.map((t) => t.toLowerCase()).includes(tagSearch.trim().toLowerCase());
 
   // Close on mousedown outside
   useEffect(() => {
@@ -353,11 +442,6 @@ function TagEditor({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open, onOpenChange]);
-
-  // Focus input when opens
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 0);
-  }, [open]);
 
   // Sort: assigned first, then rest
   const sorted = useMemo(() => {
@@ -379,6 +463,7 @@ function TagEditor({
           {tag}
           <button
             onMouseDown={(e) => { e.stopPropagation(); onRemoveTag(tag); }}
+            aria-label={`Quitar tag ${tag}`}
             className="hover:text-[var(--color-text)] transition-colors leading-none"
           >
             ×
@@ -389,6 +474,7 @@ function TagEditor({
       {/* Add tag button */}
       <button
         onClick={() => onOpenChange(true)}
+        aria-label="Añadir tag"
         className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs text-[var(--color-text-muted)]/60 border border-dashed border-[var(--color-border)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] transition-colors"
       >
         <Plus size={10} />
@@ -398,43 +484,91 @@ function TagEditor({
       {/* Dropdown */}
       {open && (
         <div className="absolute top-full left-0 mt-1.5 z-50 w-56 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg overflow-hidden">
-          {/* Search input */}
+          {/* Search input — disabled while renaming to prevent accidental tag creation */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)]">
             <MagnifyingGlass size={13} className="text-[var(--color-text-muted)] shrink-0" />
             <input
               ref={inputRef}
-              value={tagSearch}
-              onChange={(e) => onTagSearchChange(e.target.value)}
+              value={renamingTag ? "" : tagSearch}
+              onChange={(e) => { if (!renamingTag) onTagSearchChange(e.target.value); }}
               onKeyDown={(e) => {
+                if (renamingTag) return;
                 if (e.key === "Escape") { e.stopPropagation(); onOpenChange(false); }
                 if (e.key === "Enter" && showCreate) { e.preventDefault(); onCreateTag(); }
               }}
-              placeholder="Buscar tag…"
-              className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none"
+              placeholder={renamingTag ? "Renombrando…" : "Buscar tag…"}
+              disabled={!!renamingTag}
+              className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none disabled:opacity-40"
             />
           </div>
 
           {/* Tag list */}
           <div className="max-h-48 overflow-y-auto py-1">
+            {!showCreate && !renamingTag && (
+              <p className="px-3 py-1.5 text-xs text-[var(--color-text-muted)]/50">Search or create a tag</p>
+            )}
             {sorted.map((tag) => {
               const assigned = tags.includes(tag);
+              const isRenaming = renamingTag === tag;
               return (
-                <button
+                <div
                   key={tag}
-                  onMouseDown={(e) => { e.preventDefault(); onToggleTag(tag); }}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
+                  className="group flex w-full items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
                 >
-                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors ${assigned ? "bg-[var(--color-stash)] border-[var(--color-stash)]" : "border-[var(--color-border)]"}`}>
+                  {/* Checkbox — disabled while renaming this tag */}
+                  <span
+                    onMouseDown={(e) => { e.preventDefault(); if (!isRenaming) onToggleTag(tag); }}
+                    className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors cursor-pointer ${assigned ? "bg-[var(--color-stash)] border-[var(--color-stash)]" : "border-[var(--color-border)]"}`}
+                  >
                     {assigned && <Check size={9} weight="bold" className="text-white" />}
                   </span>
-                  {tag}
-                </button>
+
+                  {/* Name or inline rename input */}
+                  {isRenaming ? (
+                    <input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") { e.preventDefault(); void confirmRename(tag, renameValue); }
+                        if (e.key === "Escape") { e.preventDefault(); setRenamingTag(null); }
+                      }}
+                      onBlur={() => void confirmRename(tag, renameValue)}
+                      className="flex-1 bg-transparent focus:outline-none text-[var(--color-text)]"
+                    />
+                  ) : (
+                    <span
+                      className="flex-1 text-left cursor-pointer"
+                      onMouseDown={(e) => { e.preventDefault(); onToggleTag(tag); }}
+                    >
+                      {tag}
+                    </span>
+                  )}
+
+                  {/* Actions — visible on hover, hidden while any rename is active */}
+                  {!renamingTag && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startRename(tag); }}
+                        aria-label={`Renombrar tag ${tag}`}
+                        className="flex items-center justify-center w-4 h-4 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-emphasis)] transition-colors"
+                      >
+                        <PencilSimple size={11} />
+                      </button>
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); void onDeleteTag(tag); }}
+                        aria-label={`Eliminar tag ${tag}`}
+                        className="flex items-center justify-center w-4 h-4 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-[var(--color-bg-emphasis)] transition-colors"
+                      >
+                        <Trash size={11} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
 
-            {sorted.length === 0 && !showCreate && (
-              <p className="px-3 py-2 text-xs text-[var(--color-text-muted)]/60">Sin resultados</p>
-            )}
 
             {/* Create option */}
             {showCreate && (

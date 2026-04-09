@@ -1,6 +1,8 @@
-import { defineConfig } from "vite";
+/// <reference types="vitest/config" />
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -8,6 +10,10 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
+  test: {
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.ts",
+  },
   server: {
     port: 1420,
     strictPort: true,
@@ -27,5 +33,11 @@ export default defineConfig(async () => ({
     target: ["es2022", "chrome120", "safari17"],
     minify: "esbuild",
     sourcemap: false,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        landing: resolve(__dirname, "landing.html"),
+      },
+    },
   },
 }));
