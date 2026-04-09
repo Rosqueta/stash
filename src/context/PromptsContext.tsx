@@ -63,7 +63,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       setPrompts(p);
       setCollections(c);
     } catch (e) {
-      toast.error("Error al cargar datos");
+      toast.error("Failed to load data");
       console.error(e);
     } finally {
       setIsLoading(false);
@@ -96,7 +96,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       });
     } catch (e) {
       console.error(e);
-      toast.error("No se pudo guardar el prompt");
+      toast.error("Could not save prompt");
       throw e;
     }
   }, []);
@@ -105,7 +105,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     await storage.deletePrompt(id);
     setPrompts((prev) => prev.filter((p) => p.id !== id));
     setSelectedId((prev) => (prev === id ? null : prev));
-    toast.success("Prompt eliminado");
+    toast.success("Prompt deleted");
   }, []);
 
   const saveCollection = useCallback(async (collection: Collection) => {
@@ -120,7 +120,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       });
     } catch (e) {
       console.error(e);
-      toast.error("No se pudo guardar la colección");
+      toast.error("Could not save collection");
       throw e;
     }
   }, []);
@@ -160,7 +160,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     setPrompts((prev) =>
       prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
     );
-    toast.success(`Tag "${name}" eliminada`);
+    toast.success(`Tag "${name}" deleted`);
   }, [prompts]);
 
   const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {
@@ -180,9 +180,9 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         next[idx] = updated;
         return next;
       });
-      if (!silent) toast.success("Copiado ✓");
+      if (!silent) toast.success("Copied ✓");
     } catch {
-      toast.error("Error al copiar");
+      toast.error("Failed to copy");
     }
   }, []);
 

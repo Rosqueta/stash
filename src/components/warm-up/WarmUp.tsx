@@ -214,7 +214,7 @@ export function WarmUp({ prompt, onCopy, onCopySuccess, onClose }: WarmUpProps) 
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-[var(--color-border)]">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--color-text)] truncate">
-            {prompt.title || "Sin título"}
+            {prompt.title || "Untitled"}
           </h2>
         </div>
         <button
@@ -237,8 +237,8 @@ export function WarmUp({ prompt, onCopy, onCopySuccess, onClose }: WarmUpProps) 
           )}
         >
           {allFilled
-            ? "Todo listo ✓"
-            : `${filledCount} de ${varNames.length} variable${varNames.length !== 1 ? "s" : ""}`}
+            ? "All set ✓"
+            : `${filledCount} of ${varNames.length} variable${varNames.length !== 1 ? "s" : ""}`}
         </div>
         <p className="text-sm text-[var(--color-text)] leading-relaxed whitespace-pre-wrap selectable">
           {segments.map((seg, i) => {
@@ -270,13 +270,13 @@ export function WarmUp({ prompt, onCopy, onCopySuccess, onClose }: WarmUpProps) 
               Tab
             </kbd>
             <ArrowRight size={10} />
-            siguiente
+            next
           </span>
           <span className="flex items-center gap-1">
             <kbd className="inline-flex items-center rounded px-1 py-0.5 font-mono bg-[var(--color-bg-muted)]">
               Esc
             </kbd>
-            cerrar
+            close
           </span>
         </div>
         <button
@@ -311,12 +311,12 @@ export function WarmUp({ prompt, onCopy, onCopySuccess, onClose }: WarmUpProps) 
                   />
                 </svg>
               </span>
-              <span>Copiado</span>
+              <span>Copied</span>
             </>
           ) : (
             <>
               <Copy size={14} className="shrink-0" />
-              {copyPhase === "copying" ? "Copiando..." : "Copiar"}
+              {copyPhase === "copying" ? "Copying..." : "Copy"}
             </>
           )}
         </button>

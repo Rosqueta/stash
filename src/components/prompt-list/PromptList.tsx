@@ -9,7 +9,7 @@ function createNewPrompt(collectionId: string | null = null): Prompt {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    title: "Sin título",
+    title: "Untitled",
     content: "",
     collectionId,
     tags: [],
@@ -129,13 +129,13 @@ export function PromptList() {
                   value={tagSearch}
                   onChange={(e) => setTagSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") { setTagFilterOpen(false); setTagSearch(""); }}}
-                  placeholder="Buscar tag…"
+                  placeholder="Search tag…"
                   className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none"
                 />
               </div>
               <div className="max-h-48 overflow-y-auto py-1">
                 {filteredTags.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-[var(--color-text-muted)]/60">Sin resultados</p>
+                  <p className="px-3 py-2 text-xs text-[var(--color-text-muted)]/60">No results</p>
                 ) : (
                   filteredTags.map((tag) => {
                     const active = activeTags.includes(tag);
@@ -165,7 +165,7 @@ export function PromptList() {
                     onMouseDown={(e) => { e.preventDefault(); setActiveTags([]); }}
                     className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
                   >
-                    Limpiar filtros
+                    Clear filters
                   </button>
                 </div>
               )}
@@ -184,17 +184,17 @@ export function PromptList() {
             />
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-semibold text-[var(--color-text)]">
-                Tu stash está vacío
+                Your stash is empty
               </p>
               <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
-                Crea tu primer prompt y accede a él desde cualquier app.
+                Create your first prompt and access it from any app.
               </p>
             </div>
             <button
               onClick={() => void handleNew()}
               className="inline-flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium bg-[var(--color-bg-muted)] text-[var(--color-text)] hover:bg-[var(--color-bg-emphasis)] transition-colors mt-2"
             >
-              <span>Nuevo prompt</span>
+              <span>New prompt</span>
               <kbd className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-emphasis)] text-[var(--color-text-muted)]">⌘N</kbd>
             </button>
           </div>

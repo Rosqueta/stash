@@ -13,7 +13,7 @@ function createNewPrompt(collectionId: string | null = null): Prompt {
   const now = Date.now();
   return {
     id: generateId(),
-    title: "Sin título",
+    title: "Untitled",
     content: "",
     collectionId,
     tags: [],
@@ -96,7 +96,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
         >
           <div className="flex items-center gap-2">
             <Plus size={15} weight="regular" />
-            <span>Nuevo prompt</span>
+            <span>New prompt</span>
           </div>
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-white/20">⌘N</kbd>
         </button>
@@ -106,7 +106,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
         >
           <div className="flex items-center gap-2">
             <MagnifyingGlass size={15} />
-            <span>Buscar</span>
+            <span>Search</span>
           </div>
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">⌘F</kbd>
         </button>
@@ -121,7 +121,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             onClick={() => setActiveCollection(null)}
           />
           <SidebarItem
-            label="Pineados"
+            label="Pinned"
             active={activeCollectionId === "pinned"}
             onClick={() => setActiveCollection("pinned")}
           />
@@ -129,9 +129,9 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
 
         <div className="px-2 mb-1 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-            Colecciones
+            Collections
           </span>
-          <Tooltip label="Nueva colección">
+          <Tooltip label="New collection">
             <IconButton size="sm" onClick={() => setIsAdding(true)}>
               <Plus size={14} weight="regular" />
             </IconButton>
@@ -150,7 +150,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
               ref={newCollectionInputRef}
               value={newCollectionName}
               onChange={(e) => setNewCollectionName(e.target.value)}
-              placeholder="Nueva colección"
+              placeholder="New collection"
               className="flex-1 min-w-0 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === "Enter") void handleAddCollection();
@@ -188,7 +188,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
         >
           <div className="flex items-center gap-2">
             <Gear size={15} />
-            <span>Ajustes</span>
+            <span>Settings</span>
           </div>
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">⌘,</kbd>
         </button>
@@ -217,7 +217,7 @@ function SidebarItem({
       )}
     >
       {label === "Prompts" && <Notepad size={16} weight="regular" />}
-      {label === "Pineados" && <PushPin size={16} weight="regular" />}
+      {label === "Pinned" && <PushPin size={16} weight="regular" />}
       <span>{label}</span>
     </button>
   );
@@ -252,7 +252,7 @@ function CollectionItem({
         <span className="truncate">{collection.name}</span>
       </div>
       <div className="flex items-center">
-        <Tooltip label="Eliminar colección">
+        <Tooltip label="Delete collection">
           <IconButton
             size="sm"
             className="opacity-0 group-hover:opacity-100 hover:text-red-500"

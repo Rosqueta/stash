@@ -146,8 +146,8 @@ async function selectPrompt(user: ReturnType<typeof userEvent.setup>, title: str
 }
 
 async function openTagEditor(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByLabelText("Añadir tag"));
-  await screen.findByPlaceholderText("Buscar tag…");
+  await user.click(screen.getByLabelText("Add tag"));
+  await screen.findByPlaceholderText("Search tag...");
 }
 
 describe("PromptDetail tags", () => {
@@ -169,7 +169,7 @@ describe("PromptDetail tags", () => {
     render(<TestApp />);
 
     await selectPrompt(user, "Prompt A");
-    await user.click(screen.getByLabelText("Quitar tag ux"));
+    await user.click(screen.getByLabelText("Remove tag ux"));
     await flushAsyncWork();
     await user.click(screen.getByRole("button", { name: "Seleccionar Prompt B" }));
     await screen.findByDisplayValue("Prompt B");
@@ -186,20 +186,20 @@ describe("PromptDetail tags", () => {
 
     await selectPrompt(user, "Prompt A");
     await openTagEditor(user);
-    await user.click(screen.getByLabelText("Renombrar tag creative"));
+    await user.click(screen.getByLabelText("Rename tag creative"));
     const renameInput = await screen.findByDisplayValue("creative");
     await user.clear(renameInput);
     await user.type(renameInput, "ideation{enter}");
     await flushAsyncWork();
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Quitar tag ideation")).toBeInTheDocument();
+      expect(screen.getByLabelText("Remove tag ideation")).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Seleccionar Prompt B" }));
     await screen.findByDisplayValue("Prompt B");
 
-    expect(screen.getByLabelText("Quitar tag ideation")).toBeInTheDocument();
+    expect(screen.getByLabelText("Remove tag ideation")).toBeInTheDocument();
     expect(mockPrompts.map((prompt) => prompt.tags)).toEqual([
       ["ideation", "ux"],
       ["ideation", "research"],
@@ -212,8 +212,8 @@ describe("PromptDetail tags", () => {
 
     await selectPrompt(user, "Prompt A");
     await openTagEditor(user);
-    await user.click(screen.getByLabelText("Eliminar tag creative"));
-    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    await user.click(screen.getByLabelText("Delete tag creative"));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
     await flushAsyncWork();
 
     await waitFor(() => {
@@ -238,10 +238,10 @@ describe("PromptDetail tags", () => {
     render(<TestApp />);
 
     await selectPrompt(user, "Prompt A");
-    await user.click(screen.getByLabelText("Quitar tag creative"));
+    await user.click(screen.getByLabelText("Remove tag creative"));
     await openTagEditor(user);
-    await user.click(screen.getByLabelText("Eliminar tag creative"));
-    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    await user.click(screen.getByLabelText("Delete tag creative"));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
     await flushAsyncWork();
 
     expect(mockPrompts.map((prompt) => prompt.tags)).toEqual([
@@ -263,8 +263,8 @@ describe("PromptDetail tags", () => {
 
     await selectPrompt(user, "Prompt A");
     await openTagEditor(user);
-    await user.click(screen.getByLabelText("Eliminar tag creative"));
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await user.click(screen.getByLabelText("Delete tag creative"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     await flushAsyncWork();
 
     expect(mockPrompts.map((prompt) => prompt.tags)).toEqual([

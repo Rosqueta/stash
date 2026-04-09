@@ -25,7 +25,7 @@ export const PromptCard = memo(function PromptCard({
       )}
     >
       <span className="flex-1 truncate">
-        {prompt.title || "Sin título"}
+        {prompt.title || "Untitled"}
       </span>
       {prompt.isPinned && (
         <PushPin size={12} weight="regular" className="shrink-0 text-[var(--color-stash)]" />

@@ -183,7 +183,7 @@ export function GlobalPalette() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar prompts…"
+          placeholder="Search prompts..."
           className="flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none"
         />
         <kbd className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
@@ -199,7 +199,7 @@ export function GlobalPalette() {
             style={{ color: "color-mix(in srgb, var(--color-text-muted) 50%, transparent)" }}
           >
             <Notepad size={32} weight="thin" />
-            <p className="text-sm">Sin resultados</p>
+            <p className="text-sm">No results</p>
           </div>
         ) : (
           filtered.map((prompt, i) => {
@@ -224,7 +224,7 @@ export function GlobalPalette() {
                 <Notepad size={16} weight="regular" className="shrink-0 text-[var(--color-text-muted)]" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate text-[var(--color-text)]">
-                    {prompt.title || "Sin título"}
+                    {prompt.title || "Untitled"}
                   </p>
                   {col && (
                     <p className="text-xs text-[var(--color-text-muted)] truncate">{col}</p>
@@ -236,7 +236,7 @@ export function GlobalPalette() {
                   className="shrink-0 text-xs text-[var(--color-stash)] transition-opacity duration-150"
                   style={{ opacity: active && !copied ? 1 : 0 }}
                 >
-                  ↵ Copiar
+                  ↵ Copy
                 </span>
 
                 {/* Checkmark SVG */}
@@ -273,11 +273,11 @@ export function GlobalPalette() {
       <div className="border-t border-[var(--color-border)] px-5 py-3 flex items-center gap-4 text-xs text-[var(--color-text-muted)]">
         <span className="flex items-center gap-1.5">
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 font-mono bg-[var(--color-bg-muted)]">↵</kbd>
-          Copiar
+          Copy
         </span>
         <span className="flex items-center gap-1.5">
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 font-mono bg-[var(--color-bg-muted)]">Esc</kbd>
-          Cerrar
+          Close
         </span>
         <span className="ml-auto font-mono">⌘⇧P</span>
       </div>

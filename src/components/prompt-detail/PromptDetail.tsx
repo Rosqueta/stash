@@ -169,8 +169,8 @@ export function PromptDetail() {
       <div className="flex flex-1 flex-col items-center justify-center gap-4" style={{ color: "color-mix(in srgb, var(--color-text-muted) 50%, transparent)" }}>
         <Notepad size={48} weight="thin" />
         <div className="flex flex-col items-center gap-0.5 text-center">
-          <p className="text-sm">Selecciona un prompt</p>
-          <p className="text-sm">o crea uno nuevo para empezar</p>
+          <p className="text-sm">Select a prompt</p>
+          <p className="text-sm">or create a new one to get started</p>
         </div>
       </div>
     );
@@ -194,7 +194,7 @@ export function PromptDetail() {
                   style={activeCollection ? { color: activeCollection.color } : undefined}
                 />
                 <span>
-                  {activeCollection ? activeCollection.name : "Sin colección"}
+                  {activeCollection ? activeCollection.name : "No collection"}
                 </span>
                 <CaretDown size={10} className="opacity-0 group-hover:opacity-60 transition-opacity" />
               </button>
@@ -211,7 +211,7 @@ export function PromptDetail() {
                   className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-muted)] cursor-pointer outline-none hover:bg-[var(--color-bg-muted)] transition-colors"
                 >
                   <Folder size={14} weight="regular" />
-                  Sin colección
+                  No collection
                 </DropdownMenu.Item>
                 {collections.length > 0 && (
                   <DropdownMenu.Separator className="my-1 h-px bg-[var(--color-border)]" />
@@ -232,7 +232,7 @@ export function PromptDetail() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-1">
-            <Tooltip label={isPinned ? "Despinear" : "Pinear"}>
+            <Tooltip label={isPinned ? "Unpin" : "Pin"}>
               <IconButton onClick={handlePin}>
                 <PushPin
                   size={18}
@@ -241,7 +241,7 @@ export function PromptDetail() {
                 />
               </IconButton>
             </Tooltip>
-            <Tooltip label="Copiar prompt">
+            <Tooltip label="Copy prompt">
               <IconButton
                 onClick={() => {
                   if (extractVariables(content).length > 0) {
@@ -254,7 +254,7 @@ export function PromptDetail() {
                 <Copy size={18} weight="regular" />
               </IconButton>
             </Tooltip>
-            <Tooltip label="Eliminar prompt">
+            <Tooltip label="Delete prompt">
               <IconButton
                 onClick={() => deletePrompt(prompt.id)}
                 className="hover:text-red-500"
@@ -269,7 +269,7 @@ export function PromptDetail() {
         <input
           value={title}
           onChange={handleTitleChange}
-          placeholder="Sin título"
+          placeholder="Untitled"
           className="w-full text-2xl font-bold bg-transparent text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-tight"
         />
 
@@ -296,7 +296,7 @@ export function PromptDetail() {
         <VariableEditor
           value={content}
           onChange={(val) => { setContent(val); scheduleSave({ content: val }); }}
-          placeholder="Escribe tu prompt aquí…"
+          placeholder="Write your prompt here..."
         />
 
 
@@ -305,7 +305,7 @@ export function PromptDetail() {
           <div className="flex-1 h-px bg-[var(--color-border)]" />
           <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
             <Note size={12} weight="regular" />
-            Notas
+            Notes
           </span>
           <div className="flex-1 h-px bg-[var(--color-border)]" />
         </div>
@@ -314,7 +314,7 @@ export function PromptDetail() {
         <textarea
           value={notes}
           onChange={handleNotesChange}
-          placeholder="Notas sobre este prompt…"
+          placeholder="Notes about this prompt..."
           className="w-full min-h-[80px] resize-none bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-relaxed selectable"
         />
       </div>
@@ -347,7 +347,7 @@ export function PromptDetail() {
           <div className="relative w-full max-w-[330px] mx-6 rounded-3xl bg-[var(--color-bg)] border border-[var(--color-border)] shadow-2xl p-6">
             <IconButton
               onClick={() => setTagPendingDelete(null)}
-              aria-label="Cerrar modal"
+              aria-label="Close modal"
               className="absolute right-4 top-4"
             >
               <X size={14} weight="bold" />
@@ -356,7 +356,7 @@ export function PromptDetail() {
               <Trash size={34} weight="regular" className="text-red-400" />
             </div>
             <h3 className="text-center text-sm font-semibold text-[var(--color-text)]">
-              Eliminar etiqueta
+              Delete tag
             </h3>
             <p className="mt-2 text-center text-sm text-[var(--color-text-muted)] leading-relaxed">
               Are you sure you want to delete?
@@ -366,7 +366,7 @@ export function PromptDetail() {
                 onClick={() => setTagPendingDelete(null)}
                 className="w-full rounded-lg px-3 py-2 text-sm font-medium bg-[var(--color-bg-muted)] text-[var(--color-text)] hover:bg-[var(--color-bg-emphasis)] transition-colors"
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 onClick={async () => {
@@ -379,7 +379,7 @@ export function PromptDetail() {
                 }}
                 className="w-full rounded-lg px-3 py-2 text-sm font-medium bg-red-400 text-white hover:bg-red-500 transition-colors"
               >
-                Eliminar
+                Delete
               </button>
             </div>
           </div>
@@ -510,7 +510,7 @@ function TagEditor({
           {tag}
           <button
             onMouseDown={(e) => { e.stopPropagation(); onRemoveTag(tag); }}
-            aria-label={`Quitar tag ${tag}`}
+            aria-label={`Remove tag ${tag}`}
             className="hover:text-[var(--color-text)] transition-colors leading-none"
           >
             ×
@@ -521,7 +521,7 @@ function TagEditor({
       {/* Add tag button */}
       <button
         onClick={() => onOpenChange(true)}
-        aria-label="Añadir tag"
+        aria-label="Add tag"
         className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs text-[var(--color-text-muted)]/60 border border-dashed border-[var(--color-border)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] transition-colors"
       >
         <Plus size={10} />
@@ -543,7 +543,7 @@ function TagEditor({
                 if (e.key === "Escape") { e.stopPropagation(); onOpenChange(false); }
                 if (e.key === "Enter" && showCreate) { e.preventDefault(); onCreateTag(); }
               }}
-              placeholder={renamingTag ? "Renombrando…" : "Buscar tag…"}
+              placeholder={renamingTag ? "Renaming..." : "Search tag..."}
               disabled={!!renamingTag}
               className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none disabled:opacity-40"
             />
@@ -598,14 +598,14 @@ function TagEditor({
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startRename(tag); }}
-                        aria-label={`Renombrar tag ${tag}`}
+                        aria-label={`Rename tag ${tag}`}
                         className="flex items-center justify-center w-4 h-4 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-emphasis)] transition-colors"
                       >
                         <PencilSimple size={11} />
                       </button>
                       <button
                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onDeleteTag(tag); }}
-                        aria-label={`Eliminar tag ${tag}`}
+                        aria-label={`Delete tag ${tag}`}
                         className="flex items-center justify-center w-4 h-4 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-[var(--color-bg-emphasis)] transition-colors"
                       >
                         <Trash size={11} />
@@ -626,7 +626,7 @@ function TagEditor({
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
                 >
                   <Plus size={12} className="text-[var(--color-stash)]" />
-                  Crear &ldquo;{tagSearch.trim()}&rdquo;
+                  Create &ldquo;{tagSearch.trim()}&rdquo;
                 </button>
               </>
             )}

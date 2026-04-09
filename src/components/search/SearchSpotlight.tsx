@@ -78,7 +78,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Busca en todos tus prompts..."
+            placeholder="Search across all your prompts..."
             className="flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none"
           />
           <kbd className="inline-flex items-center rounded-md px-2 py-1 text-[11px] font-mono bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
@@ -92,7 +92,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
         <div className="max-h-[360px] overflow-y-auto py-2">
           {filtered.length === 0 ? (
             <p className="px-5 py-8 text-sm text-center text-[var(--color-text-muted)]">
-              Sin resultados
+              No results
             </p>
           ) : (
             filtered.map((p, i) => {
@@ -117,7 +117,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
                   {/* Text */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate text-[var(--color-text)]">
-                      {p.title || "Sin título"}
+                      {p.title || "Untitled"}
                     </p>
                     <p className="text-xs text-[var(--color-text-muted)] truncate">
                       {collectionName(p.collectionId)}
@@ -127,7 +127,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
                   {/* Copy hint */}
                   {active && (
                     <span className="shrink-0 text-xs text-[var(--color-stash)] flex items-center gap-1">
-                      ↵ Copiar
+                      ↵ Copy
                     </span>
                   )}
                 </div>
@@ -140,15 +140,15 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
         <div className="border-t border-[var(--color-border)] px-5 py-3 flex items-center gap-4 text-xs text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1.5">
             <kbd className="inline-flex items-center rounded px-1.5 py-0.5 font-mono bg-[var(--color-bg-muted)]">↵</kbd>
-            Copiar
+            Copy
           </span>
           <span className="flex items-center gap-1.5">
             <kbd className="inline-flex items-center rounded px-1.5 py-0.5 font-mono bg-[var(--color-bg-muted)]">⌘↵</kbd>
-            Abrir
+            Open
           </span>
           <span className="flex items-center gap-1.5">
             <kbd className="inline-flex items-center rounded px-1.5 py-0.5 font-mono bg-[var(--color-bg-muted)]">Esc</kbd>
-            Cerrar
+            Close
           </span>
         </div>
       </div>

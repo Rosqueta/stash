@@ -1,7 +1,7 @@
 const TAG_RULES: Record<string, string[]> = {
-  código: [
-    "función",
-    "código",
+  code: [
+    "function",
+    "code",
     "debug",
     "react",
     "typescript",
@@ -10,41 +10,39 @@ const TAG_RULES: Record<string, string[]> = {
     "test",
     "script",
   ],
-  redacción: [
+  writing: [
+    "write",
     "email",
-    "redacta",
-    "escribe",
-    "artículo",
+    "article",
     "post",
     "newsletter",
     "copy",
+    "content",
     "texto",
   ],
-  diseño: [
-    "componente",
+  design: [
+    "component",
     "ui",
     "ux",
     "figma",
-    "diseño",
+    "design",
     "layout",
     "color",
-    "interfaz",
+    "interface",
   ],
-  análisis: [
-    "analiza",
-    "resume",
-    "extrae",
-    "informe",
-    "datos",
-    "métricas",
+  analysis: [
+    "analyze",
+    "summarize",
+    "extract",
     "report",
+    "data",
+    "metrics",
   ],
-  reunión: [
-    "transcripción",
-    "reunión",
+  meeting: [
+    "transcription",
     "meeting",
     "agenda",
-    "acta",
+    "minutes",
     "summary",
   ],
 };

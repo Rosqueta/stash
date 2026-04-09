@@ -43,7 +43,7 @@ function AppShell() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-sm text-[var(--color-text-muted)]">
-          Cargando…
+          Loading...
         </div>
       </div>
     );

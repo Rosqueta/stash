@@ -154,7 +154,7 @@ function ShortcutsSection({ globalShortcut, onShortcutChange }: {
       e.stopPropagation();
       const combo = keyEventToShortcut(e);
       if (!combo) {
-        setError("Escribe una combinación con ⌘, ⌥ o ^");
+        setError("Use a combination with ⌘, ⌥ or ^");
         return;
       }
       setError(null);
@@ -191,7 +191,7 @@ function ShortcutsSection({ globalShortcut, onShortcutChange }: {
                   : "border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text)] hover:border-[var(--color-text-muted)]"
               )}
             >
-              {recording ? "Grabando…" : formatShortcut(globalShortcut)}
+              {recording ? "Recording..." : formatShortcut(globalShortcut)}
             </button>
             {error && <p className="text-[10px] text-[var(--color-text-muted)]">{error}</p>}
           </div>

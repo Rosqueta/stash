@@ -26,7 +26,7 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
   );
 }
 
-// Botón cuadrado para iconos — hover consistente en toda la app
+// Square icon button with consistent hover behavior across the app
 export const IconButton = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { size?: "sm" | "md" }
