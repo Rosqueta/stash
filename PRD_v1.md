@@ -13,13 +13,13 @@ Los prompts bien escritos son activos de trabajo. Sin embargo, hoy viven dispers
 
 ### 1.2 La solución
 
-Stash es la primera app macOS diseñada específicamente para gestionar prompts como ciudadanos de primera clase. No son notas de texto: tienen estructura (variables, modelo target, versiones), están organizados (colecciones, tags), y son accionables desde cualquier app en el Mac con un shortcut global.
+Stash es la primera app macOS diseñada específicamente para gestionar prompts como ciudadanos de primera clase. No son notas de texto: tienen estructura (variables, colecciones, tags, notas), están organizados y son accionables desde cualquier app en el Mac con un shortcut global.
 
 ### 1.3 Principios de diseño
 
 - **Offline-first.** Sin cuenta, sin cloud, sin internet. Los datos viven en un fichero JSON local que el usuario controla.
 - **Fricción cero en el uso.** El camino desde «quiero usar este prompt» hasta «está en mi portapapeles listo» debe ser de 2-3 pasos máximo.
-- **Los prompts tienen estructura.** Variables, modelo target, versiones y notas son parte del dato, no metadatos opcionales.
+- **Los prompts tienen estructura.** Variables, tags, notas y colecciones son parte del dato.
 - **Minimalismo con carácter.** Inspirado en Scratch (`./scratch/`) — interfaz limpia, nativa macOS, con personalidad.
 
 ### 1.4 Fuera de scope en v1
@@ -27,9 +27,11 @@ Stash es la primera app macOS diseñada específicamente para gestionar prompts 
 - Sync en la nube
 - Compartir prompts con equipo
 - Ejecución directa contra APIs de IA
-- Import desde URLs externas
+- Import / export de `stash.json`
 - Extensión de navegador
-- Versiones de prompts (historial de cambios, notas por versión, rating) — descartado en v1, posible en v2
+- Versiones de prompts (historial de cambios) — descartado, Rust struct conserva el campo con `#[serde(default)]` para compatibilidad futura
+- Autotagging automático
+- Onboarding
 
 ---
 
@@ -37,7 +39,7 @@ Stash es la primera app macOS diseñada específicamente para gestionar prompts 
 
 Perfil principal: diseñadora / desarrolladora que usa herramientas de IA intensivamente en su trabajo diario (Claude, ChatGPT, Cursor, Claude Code) y ha acumulado prompts que reutiliza con frecuencia. Técnicamente capaz, Mac user, valora la velocidad y el control.
 
-**Pains actuales:** prompts dispersos en notas, copiar-pegar manual cada vez, olvidar qué versión de un prompt funcionó mejor, perder tiempo ajustando variables repetidamente.
+**Pains actuales:** prompts dispersos en notas, copiar-pegar manual cada vez, perder tiempo ajustando variables repetidamente.
 
 **Job-to-be-done:** «Quiero acceder a mi mejor prompt de email de rechazo desde cualquier app, rellenar el nombre de la empresa, y tenerlo en el portapapeles en 5 segundos.»
 
@@ -53,6 +55,7 @@ Perfil principal: diseñadora / desarrolladora que usa herramientas de IA intens
 | Radix UI | Dialogs, menus, tooltips accesibles. |
 | Sonner | Sistema de toasts. |
 | @tauri-apps/plugin-clipboard-manager | Copiar prompts al portapapeles. |
+| @tauri-apps/plugin-global-shortcut | Registrar ⌘⇧P (configurable) como shortcut global. |
 
 **No usados** (a diferencia de Scratch): TipTap, Tantivy, dnd-kit, git integration. La búsqueda es en JS sobre el array de prompts en memoria.
 
@@ -62,10 +65,19 @@ Toda la persistencia y clipboard vive en Rust (`src-tauri/src/lib.rs`). El front
 
 ### Almacenamiento
 
-Un único fichero `{APP_DATA}/stash.json`:
-```json
-{ "prompts": [], "collections": [], "version": 1 }
+Dos ficheros en `{APP_DATA}/`:
 ```
+stash.json     → { prompts: [], collections: [], version: 1 }
+settings.json  → { theme: "system", globalShortcut: "Super+Shift+KeyP" }
+```
+
+### Ventanas nativas
+
+Solo dos ventanas definidas en `tauri.conf.json`:
+- `main` — app principal (1080×720, `visible: false` hasta que carguen los datos)
+- `palette` — paleta global flotante (640×420, transparente, `alwaysOnTop`)
+
+**Settings no es una ventana nativa** — es un modal in-app con backdrop blur renderizado sobre el contenido principal.
 
 ---
 
@@ -80,26 +92,13 @@ interface Prompt {
   content: string;               // Texto con {{variables}}
   collectionId: string | null;
   tags: string[];
-  modelTarget: ModelTarget;      // 'claude-sonnet' | 'claude-opus' | 'gpt-4o' | 'gemini' | 'any'
-  isFavorite: boolean;
+  modelTarget: string;           // 'claude-sonnet' | 'claude-opus' | 'gpt-4o' | 'gemini' | 'any'
+  isPinned: boolean;             // era isFavorite — serde alias mantiene compatibilidad con JSON antiguo
   createdAt: number;             // Unix timestamp
   updatedAt: number;
   lastUsedAt: number | null;
   useCount: number;
-  versions: PromptVersion[];     // Max 10
   notes: string;
-}
-```
-
-### PromptVersion
-
-```typescript
-interface PromptVersion {
-  id: string;
-  content: string;
-  createdAt: number;
-  note: string;                  // 'Añadí parámetro de tono'
-  rating: 1 | 2 | 3 | null;    // 1=mal, 2=ok, 3=bien
 }
 ```
 
@@ -113,164 +112,107 @@ interface Collection {
 }
 ```
 
+### AppSettings
+
+```typescript
+interface AppSettings {
+  theme: "light" | "dark" | "system";
+  globalShortcut: string;        // formato: "Super+Shift+KeyP"
+}
+```
+
 ---
 
-## 5. Features — v1
+## 5. Features implementadas
 
-### 5.1 Biblioteca de prompts
+### 5.1 Biblioteca de prompts ✅
 
 **Lista (panel central)**
 - Ordenada por `lastUsedAt` desc por defecto.
-- Card: título, preview de contenido, tags, modelo target.
-- Selección con clic o ↑↓.
-- Búsqueda debounced 150ms sobre title + content.
+- Card: título, colección, pin indicator.
+- Selección con clic.
+- Búsqueda debounced 150ms sobre title + content (SearchSpotlight).
 
 **Detalle (panel derecho)**
 - Título editable inline.
-- Contenido con `{{variables}}` resaltadas como chips amber.
-- Sección Versiones: hasta 10 versiones con nota, fecha y rating dots.
-- Sección Notas: textarea libre.
-- Botón favorito y metadata en header.
-
-**Criterio de aceptación:** seleccionar un prompt muestra su contenido completo en menos de 200ms.
+- Contenido con `{{variables}}` resaltadas como chips amber (VariableEditor).
+- Sección Notas: textarea libre con autosave.
+- Acciones: copiar, eliminar, pinear.
 
 ---
 
-### 5.2 Shortcut global ⌘⇧P
+### 5.2 Shortcut global ⌘⇧P ✅
 
 El killer feature. Accesible desde **cualquier app del Mac**.
 
 **Comportamiento**
-- ⌘⇧P abre paleta flotante sobre cualquier app activa.
+- ⌘⇧P (configurable) abre paleta flotante sobre cualquier app activa.
 - Input con foco automático al abrir.
 - Búsqueda sobre título y contenido, debounced 150ms.
-- ↑↓ navegan, Enter confirma, Escape cierra.
+- ↑↓ navegan, Enter confirma, Escape cierra y restaura el foco a la app anterior.
 - Prompt con variables → abre Warm Up modal.
-- Prompt sin variables → copia directamente + toast «Copiado ✓» + cierra.
-- `scrollIntoView({ block: 'center', behavior: 'smooth' })` al cambiar selección.
-- Animación `slide-down` al abrir (mismo patrón que `./scratch/`).
+- Prompt sin variables → copia directamente + cierra.
 
-**Implementación:** Tauri `plugin-global-shortcut`. Overlay `fixed inset-0 z-50 max-w-2xl`.
-
-**Criterio de aceptación:** desde cualquier app, ⌘⇧P abre la paleta en menos de 300ms. El prompt debe estar en el portapapeles antes de que el usuario pueda pegar.
+**Implementación:** `plugin-global-shortcut`. Guarda PID de la app frontal y la reactiva al cerrar via AppleScript.
 
 ---
 
-### 5.3 Warm Up modal
+### 5.3 Warm Up modal ✅
 
-Pantalla de preparación antes de copiar un prompt con variables. **Interacción clave: las variables son chips editables inline dentro del texto** — no un formulario separado.
+Pantalla de preparación antes de copiar un prompt con variables.
 
 **Interacción inline**
-- El prompt se renderiza completo. Cada `{{variable}}` es un chip amber clickable en su posición.
+- El prompt se renderiza completo. Cada `{{variable}}` es un chip amber clickable.
 - Clic en chip → input editable inline, misma posición en el texto.
-- Al escribir, el chip se expande al contenido. Sin layout shift.
 - Enter / Tab → confirma y salta a la siguiente variable vacía.
-- Escape → cancela sin perder el valor anterior.
-- Variables repetidas (ej. `{{tono}}` dos veces) se sincronizan — editar una actualiza todas.
-- Foco automático en la primera variable vacía al abrir.
-
-**Estados de un chip**
-
-| Estado | Apariencia |
-|---|---|
-| Sin rellenar | Fondo amber, nombre en cursiva, cursor pointer |
-| Editando | Border amber, input inline activo, sin fondo |
-| Relleno | Fondo verde, valor + tick ✓, cursor pointer para re-editar |
+- Escape → cancela.
+- Variables repetidas se sincronizan — editar una actualiza todas.
 
 **Footer**
-- Contador: «2 de 3 variables» → «Todo listo ✓» al completar.
-- Botón «Copiar»: siempre activo. Variables vacías se copian como `{{variable}}`.
+- Botón «Copiar»: copia con variables resueltas al portapapeles.
 - Botón «Cancelar».
-
-**Parsing del prompt**
-
-```typescript
-type Segment = { type: 'text'; value: string } | { type: 'var'; name: string };
-
-function parseSegments(content: string): Segment[] {
-  const parts = content.split(/(\{\{\w+\}\})/g);
-  return parts.map(p => {
-    const match = p.match(/^\{\{(\w+)\}\}$/);
-    return match ? { type: 'var', name: match[1] } : { type: 'text', value: p };
-  });
-}
-
-function resolveVariables(content: string, values: Record<string, string>): string {
-  return content.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] ?? `{{${key}}}`);
-}
-```
-
-**Estado React**
-```typescript
-const [values, setValues] = useState<Record<string, string>>({});
-const [editingKey, setEditingKey] = useState<string | null>(null); // "varname_segmentIndex"
-```
-
-Variables repetidas comparten el mismo slot en `values`.
-
-**Criterio de aceptación:** el chip se expande sin mover el texto. Editar `{{tono}}` actualiza todas sus instancias. Tab salta a la siguiente vacía.
 
 ---
 
-### 5.4 Colecciones y tags
+### 5.4 Colecciones y tags ✅
 
 **Colecciones**
-- Primer nivel, sin anidamiento en v1.
+- Primer nivel, sin anidamiento.
 - Nombre + color (dot en sidebar).
-- Sugeridas en onboarding: Código, Diseño, Redacción, Análisis, General.
-- Crear / renombrar / eliminar desde sidebar.
+- Crear / eliminar desde sidebar (inline input).
 - Eliminar colección → prompts pasan a «Sin colección».
+- Nuevas colecciones se añaden al principio de la lista.
 
 **Tags**
 - Libres por prompt, múltiples.
-- Autosugerencia al guardar (sin IA, reglas estáticas — ver 5.7).
-- El usuario confirma o edita los sugeridos.
+- Añadidos manualmente desde el detalle del prompt.
 
 **Vistas rápidas en sidebar**
 - Todos los prompts
-- Favoritos
-- Usados hoy (`lastUsedAt` del día actual)
+- Pineados
 
 ---
 
-### 5.5 Versioning ligero
+### 5.5 Settings ✅
 
-- Cada save con contenido diferente crea una versión automáticamente.
-- Máximo 10 versiones por prompt. Al superar el límite, se elimina la más antigua.
-- El usuario puede añadir nota y rating (1/2/3) a cualquier versión.
-- Clic en versión antigua → previsualización lateral (no la activa).
-- «Restaurar esta versión» → crea nueva versión con ese contenido (no sobreescribe el historial).
+Modal in-app (no ventana nativa). Abierto con ⌘, o botón en sidebar.
+Backdrop: `rgba(0,0,0,0.35)` + `backdrop-filter: blur(6px)`.
+Cerrado con Escape, ⌘,, botón ✕ o clic fuera.
 
-**UI**
-- Lista vertical, más reciente arriba.
-- Item: número de versión, fecha relativa, nota, dots de rating (● verde / ● rojo / ○ sin rating).
-- Versión activa con borde destacado.
-
-**Criterio de aceptación:** guardar crea versión en menos de 100ms. Restaurar crea nueva versión, no sobreescribe.
+| Sección | Contenido |
+|---|---|
+| Appearance | Toggle Light / Dark / System. Persiste en `settings.json`. El tema se aplica en tiempo real via evento `settings:theme-changed`. |
+| Shortcuts | Shortcut global configurable (click para grabar). Lista de shortcuts in-app reales: ⌘N, ⌘F, ⌘,. |
+| Data | Ruta del fichero, nº de prompts, nº de colecciones. Botón "Show in Finder". |
+| About | Logo, versión, descripción, links externos. |
 
 ---
 
-### 5.6 Notas por prompt
+### 5.6 Notas por prompt ✅
 
 - Campo de texto libre en el panel de detalle.
 - Plain text, sin formato.
-- Autosave al perder foco, debounced 300ms.
-
----
-
-### 5.7 Autotagging sin IA
-
-Al guardar, el sistema analiza el contenido y sugiere tags por palabras clave:
-
-| Tag | Palabras clave |
-|---|---|
-| código | función, código, debug, react, typescript, python, refactor, test, script |
-| redacción | email, redacta, escribe, artículo, post, newsletter, copy, texto |
-| diseño | componente, ui, ux, figma, diseño, layout, color, interfaz |
-| análisis | analiza, resume, extrae, informe, datos, métricas, report |
-| reunión | transcripción, reunión, meeting, agenda, acta, summary |
-
-Los tags sugeridos se muestran como chips seleccionables. No se aplican sin confirmación del usuario.
+- Autosave al perder foco, debounced.
 
 ---
 
@@ -280,11 +222,11 @@ Los tags sugeridos se muestran como chips seleccionables. No se aplican sin conf
 
 | Panel | Ancho | Contenido |
 |---|---|---|
-| Sidebar izquierdo | 220px | Colecciones, vistas rápidas, búsqueda, nuevo prompt |
-| Lista central | 240px | Prompts filtrados. Selección activa con borde izquierdo |
-| Detalle derecho | flex: 1 | Contenido, versiones, notas, acciones |
+| Sidebar izquierdo | 220px | Colecciones, vistas rápidas, búsqueda, nuevo prompt, ajustes |
+| Lista central | 284px | Prompts filtrados |
+| Detalle derecho | flex: 1 | Contenido, notas, acciones |
 
-### macOS nativo (copiar de `./scratch/src-tauri/tauri.conf.json`)
+### macOS nativo
 
 ```json
 {
@@ -305,19 +247,9 @@ Los tags sugeridos se muestran como chips seleccionables. No se aplican sin conf
 
 CSS custom properties en `App.css`, registradas con Tailwind `@theme`. Nunca hardcodear hex en componentes. Color de marca: amber (`#D97706` light, `#F59E0B` dark).
 
-### Debounces y rendimiento
-
-| Operación | Debounce |
-|---|---|
-| Búsqueda en sidebar | 150ms |
-| Autosave de notas | 300ms |
-| Autosave de prompt | 300ms |
-| React.memo | Todos los componentes de lista (PromptCard) |
-
 ### Feedback de acciones (sonner toasts)
 
 - Prompt copiado → «Copiado ✓» (success, 2s)
-- Prompt guardado → silencioso (se refleja en UI)
 - Error al copiar → «Error al copiar» (error, 3s)
 - Prompt eliminado → «Prompt eliminado» + undo (3s)
 
@@ -325,72 +257,56 @@ CSS custom properties en `App.css`, registradas con Tailwind `@theme`. Nunca har
 
 ## 7. Keyboard shortcuts
 
-| Shortcut | Acción |
-|---|---|
-| ⌘⇧P | Abrir paleta global (desde cualquier app) |
-| ⌘N | Nuevo prompt |
-| ⌘F | Buscar en sidebar |
-| ⌘, | Settings |
-| ⌘\ | Toggle sidebar |
-| ↑/↓ | Navegar lista de prompts |
-| Enter | Abrir prompt / confirmar en paleta |
-| Escape | Cerrar modal/paleta |
-| ⌘S | Guardar prompt actual |
-| ⌘D | Duplicar prompt actual |
+| Shortcut | Acción | Estado |
+|---|---|---|
+| ⌘⇧P | Abrir paleta global (configurable, desde cualquier app) | ✅ |
+| ⌘N | Nuevo prompt | ✅ |
+| ⌘F | Buscar (SearchSpotlight) | ✅ |
+| ⌘, | Abrir settings modal | ✅ |
+| Escape | Cerrar modal/paleta | ✅ |
+| ↑/↓ | Navegar en paleta global y SearchSpotlight | ✅ |
 
 ---
 
-## 8. Onboarding
+## 8. Landing page
 
-Primera apertura:
-1. Pantalla de bienvenida con logo ardilla y tagline «Your prompt stash.»
-2. Selección de colecciones iniciales (lista sugerida o crear manualmente).
-3. 3 prompts de ejemplo pre-cargados.
-4. Tooltip en primer uso de ⌘⇧P.
-
----
-
-## 9. Settings
-
-| Setting | Opciones |
-|---|---|
-| Tema | Light / Dark / System (defecto: System) |
-| Shortcut global | Configurable. Defecto: ⌘⇧P |
-| Idioma autotagging | Español / English |
-| Máximo versiones | 5–20. Defecto: 10 |
-| Exportar datos | Exporta `stash.json` |
-| Importar datos | Mergea un `stash.json` externo |
+Página de marketing estática en `web/index.html`.
+- Sin dependencias de build — fichero HTML único con CSS embebido.
+- Diseño light, tipografía Inter + Instrument Serif, color de marca amber.
+- Secciones: nav, hero, mockup de la app, tabla de features, pillars, CTA, footer.
 
 ---
 
-## 10. Fases de desarrollo
+## 9. Fases de desarrollo
 
-### Fase 1 — Core (MVP)
+### Fase 1 — Core (MVP) ✅
 - Scaffold Tauri + React + TypeScript + Tailwind
 - Modelo de datos y persistencia en `stash.json` via Rust
 - Layout 3 paneles: sidebar, lista, detalle
 - CRUD de prompts y colecciones
-- Resaltado de `{{variables}}` en el detalle
-- Copiar al portapapeles básico (sin warm up)
+- Resaltado de `{{variables}}` en el detalle (VariableEditor)
+- Copiar al portapapeles
 
-### Fase 2 — Killer features
-- Shortcut global ⌘⇧P con paleta de búsqueda
+### Fase 2 — Killer features ✅
+- Shortcut global ⌘⇧P con paleta de búsqueda (GlobalPalette)
 - Warm Up modal con chips editables inline
-- Autotagging por palabras clave
-- Theming light/dark
+- Theming light/dark/system con persistencia
+- Tags
 
-### Fase 3 — Profundidad
-- Versioning ligero con notas y rating
-- Vistas rápidas: Favoritos, Usados hoy
-- Settings page
+### Fase 3 — Profundidad ✅ (parcial)
+- Settings modal in-app (Appearance, Shortcuts, Data, About)
+- Landing page (`web/index.html`)
+
+### Pendiente (Fase 3+)
 - Onboarding con prompts de ejemplo
 - Exportar / importar `stash.json`
+- Vista "Usados hoy"
 
 ---
 
-## 11. Referencias
+## 10. Referencias
 
 - `./scratch/` — repo local de referencia de arquitectura. No modificar.
 - Tauri v2: https://v2.tauri.app
-- plugin-global-shortcut: registro de ⌘⇧P
+- plugin-global-shortcut: registro del shortcut global
 - plugin-clipboard-manager: copiar desde Rust

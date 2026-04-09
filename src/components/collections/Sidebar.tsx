@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen } from "@phosphor-icons/react";
+import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gear } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { IconButton, Tooltip } from "../ui";
@@ -31,7 +31,7 @@ const COLLECTION_COLORS = [
   "#d97706", "#0ea5e9", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b",
 ];
 
-export function Sidebar({ onSearchOpen }: { onSearchOpen: () => void }) {
+export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => void; onSettingsOpen: () => void }) {
   const { collections, activeCollectionId } = usePromptsData();
   const { setActiveCollection, saveCollection, deleteCollection, savePrompt, selectPrompt } =
     usePromptsActions();
@@ -104,7 +104,7 @@ export function Sidebar({ onSearchOpen }: { onSearchOpen: () => void }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
+      <div className="flex-1 overflow-y-auto px-2 pb-2">
         {/* Quick views */}
         <section className="mb-4 space-y-0.5">
           <SidebarItem
@@ -170,6 +170,20 @@ export function Sidebar({ onSearchOpen }: { onSearchOpen: () => void }) {
           />
         ))}
         </div>
+      </div>
+
+      {/* Settings */}
+      <div className="px-2 pb-3 pt-1 shrink-0">
+        <button
+          onClick={onSettingsOpen}
+          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)] transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Gear size={15} />
+            <span>Ajustes</span>
+          </div>
+          <kbd className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">⌘,</kbd>
+        </button>
       </div>
     </aside>
   );

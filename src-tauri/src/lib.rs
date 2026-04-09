@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tokio::fs;
 
-// Stores the process ID of the app that was frontmost before the palette opened
+// ── Managed state ─────────────────────────────────────────────────────────────
+
 struct PreviousApp(Mutex<Option<i32>>);
+struct CurrentShortcut(Mutex<String>);
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -56,46 +58,186 @@ pub struct StashData {
     pub version: u32,
 }
 
+// ── Settings model ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppSettings {
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    #[serde(default = "default_shortcut")]
+    pub global_shortcut: String,
+}
+
+fn default_theme() -> String { "system".to_string() }
+fn default_shortcut() -> String { "Super+Shift+KeyP".to_string() }
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self { theme: default_theme(), global_shortcut: default_shortcut() }
+    }
+}
+
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
 fn stash_path(app: &AppHandle) -> PathBuf {
-    app.path()
-        .app_data_dir()
-        .expect("Could not resolve app data dir")
-        .join("stash.json")
+    app.path().app_data_dir().expect("app data dir").join("stash.json")
+}
+
+fn settings_path(app: &AppHandle) -> PathBuf {
+    app.path().app_data_dir().expect("app data dir").join("settings.json")
+}
+
+fn read_settings_sync(path: &std::path::Path) -> AppSettings {
+    if !path.exists() { return AppSettings::default(); }
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
 }
 
 async fn read_data(app: &AppHandle) -> Result<StashData, String> {
     let path = stash_path(app);
     if !path.exists() {
-        return Ok(StashData {
-            version: 1,
-            ..Default::default()
-        });
+        return Ok(StashData { version: 1, ..Default::default() });
     }
-    let raw = fs::read_to_string(&path)
-        .await
-        .map_err(|e| e.to_string())?;
+    let raw = fs::read_to_string(&path).await.map_err(|e| e.to_string())?;
     serde_json::from_str(&raw).map_err(|e| e.to_string())
 }
 
 async fn write_data(app: &AppHandle, data: &StashData) -> Result<(), String> {
     let path = stash_path(app);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .await
-            .map_err(|e| e.to_string())?;
+        fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
     fs::write(&path, json).await.map_err(|e| e.to_string())
+}
+
+async fn read_settings(app: &AppHandle) -> AppSettings {
+    let path = settings_path(app);
+    if !path.exists() { return AppSettings::default(); }
+    fs::read_to_string(&path).await
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+async fn write_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
+    let path = settings_path(app);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    fs::write(&path, json).await.map_err(|e| e.to_string())
+}
+
+// ── Shortcut helpers ──────────────────────────────────────────────────────────
+
+fn parse_shortcut_string(s: &str) -> Option<Shortcut> {
+    let parts: Vec<&str> = s.split('+').collect();
+    if parts.is_empty() { return None; }
+    let code_str = *parts.last()?;
+    let code = str_to_code(code_str)?;
+    let mut modifiers = Modifiers::empty();
+    for m in &parts[..parts.len() - 1] {
+        match *m {
+            "Super" => modifiers |= Modifiers::SUPER,
+            "Shift" => modifiers |= Modifiers::SHIFT,
+            "Alt" => modifiers |= Modifiers::ALT,
+            "Control" => modifiers |= Modifiers::CONTROL,
+            _ => {}
+        }
+    }
+    let mods = if modifiers.is_empty() { None } else { Some(modifiers) };
+    Some(Shortcut::new(mods, code))
+}
+
+fn str_to_code(s: &str) -> Option<Code> {
+    match s {
+        "KeyA" => Some(Code::KeyA), "KeyB" => Some(Code::KeyB), "KeyC" => Some(Code::KeyC),
+        "KeyD" => Some(Code::KeyD), "KeyE" => Some(Code::KeyE), "KeyF" => Some(Code::KeyF),
+        "KeyG" => Some(Code::KeyG), "KeyH" => Some(Code::KeyH), "KeyI" => Some(Code::KeyI),
+        "KeyJ" => Some(Code::KeyJ), "KeyK" => Some(Code::KeyK), "KeyL" => Some(Code::KeyL),
+        "KeyM" => Some(Code::KeyM), "KeyN" => Some(Code::KeyN), "KeyO" => Some(Code::KeyO),
+        "KeyP" => Some(Code::KeyP), "KeyQ" => Some(Code::KeyQ), "KeyR" => Some(Code::KeyR),
+        "KeyS" => Some(Code::KeyS), "KeyT" => Some(Code::KeyT), "KeyU" => Some(Code::KeyU),
+        "KeyV" => Some(Code::KeyV), "KeyW" => Some(Code::KeyW), "KeyX" => Some(Code::KeyX),
+        "KeyY" => Some(Code::KeyY), "KeyZ" => Some(Code::KeyZ),
+        "Digit0" => Some(Code::Digit0), "Digit1" => Some(Code::Digit1),
+        "Digit2" => Some(Code::Digit2), "Digit3" => Some(Code::Digit3),
+        "Digit4" => Some(Code::Digit4), "Digit5" => Some(Code::Digit5),
+        "Digit6" => Some(Code::Digit6), "Digit7" => Some(Code::Digit7),
+        "Digit8" => Some(Code::Digit8), "Digit9" => Some(Code::Digit9),
+        "F1" => Some(Code::F1), "F2" => Some(Code::F2), "F3" => Some(Code::F3),
+        "F4" => Some(Code::F4), "F5" => Some(Code::F5), "F6" => Some(Code::F6),
+        "F7" => Some(Code::F7), "F8" => Some(Code::F8), "F9" => Some(Code::F9),
+        "F10" => Some(Code::F10), "F11" => Some(Code::F11), "F12" => Some(Code::F12),
+        "Space" => Some(Code::Space),
+        "Enter" => Some(Code::Enter),
+        "Tab" => Some(Code::Tab),
+        "Escape" => Some(Code::Escape),
+        "Comma" => Some(Code::Comma),
+        "Period" => Some(Code::Period),
+        "Slash" => Some(Code::Slash),
+        "Semicolon" => Some(Code::Semicolon),
+        "Backslash" => Some(Code::Backslash),
+        "BracketLeft" => Some(Code::BracketLeft),
+        "BracketRight" => Some(Code::BracketRight),
+        "Minus" => Some(Code::Minus),
+        "Equal" => Some(Code::Equal),
+        _ => None,
+    }
+}
+
+fn register_palette_shortcut(app: &AppHandle, shortcut_str: &str) -> Result<(), String> {
+    let shortcut = parse_shortcut_string(shortcut_str)
+        .ok_or_else(|| format!("Invalid shortcut: {}", shortcut_str))?;
+    let app_handle = app.clone();
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |_app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                #[cfg(target_os = "macos")]
+                {
+                    let pid = get_frontmost_pid();
+                    if let Some(state) = app_handle.try_state::<PreviousApp>() {
+                        *state.0.lock().unwrap() = pid;
+                    }
+                }
+                if let Some(window) = app_handle.get_webview_window("palette") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        })
+        .map_err(|e| e.to_string())
+}
+
+// ── macOS helpers ─────────────────────────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn get_frontmost_pid() -> Option<i32> {
+    let output = std::process::Command::new("osascript")
+        .args(["-e", "tell application \"System Events\" to get unix id of first process whose frontmost is true"])
+        .output().ok()?;
+    String::from_utf8(output.stdout).ok()?.trim().parse::<i32>().ok()
+}
+
+#[cfg(target_os = "macos")]
+fn activate_app_by_pid(pid: i32) {
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", &format!(
+            "tell application \"System Events\" to set frontmost of first process whose unix id is {} to true",
+            pid
+        )])
+        .spawn();
 }
 
 // ── Tauri commands ─────────────────────────────────────────────────────────────
 
 #[tauri::command]
 async fn list_prompts(app: AppHandle) -> Result<Vec<Prompt>, String> {
-    let data = read_data(&app).await?;
-    Ok(data.prompts)
+    Ok(read_data(&app).await?.prompts)
 }
 
 #[tauri::command]
@@ -118,8 +260,7 @@ async fn delete_prompt(app: AppHandle, id: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn list_collections(app: AppHandle) -> Result<Vec<Collection>, String> {
-    let data = read_data(&app).await?;
-    Ok(data.collections)
+    Ok(read_data(&app).await?.collections)
 }
 
 #[tauri::command]
@@ -147,34 +288,81 @@ async fn delete_collection(app: AppHandle, id: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn copy_to_clipboard(app: AppHandle, text: String) -> Result<(), String> {
-    app.clipboard()
-        .write_text(text)
-        .map_err(|e| e.to_string())
+    app.clipboard().write_text(text).map_err(|e| e.to_string())
+}
+
+// ── Settings commands ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn load_settings(app: AppHandle) -> Result<AppSettings, String> {
+    Ok(read_settings(&app).await)
 }
 
 #[tauri::command]
-async fn setup_palette_window(app: AppHandle) -> Result<(), String> {
-    if let Some(palette) = app.get_webview_window("palette") {
-        palette
-            .set_visible_on_all_workspaces(true)
-            .map_err(|e| e.to_string())?;
+async fn save_theme(app: AppHandle, theme: String) -> Result<(), String> {
+    let mut settings = read_settings(&app).await;
+    settings.theme = theme;
+    write_settings(&app, &settings).await
+}
+
+#[tauri::command]
+async fn update_global_shortcut(app: AppHandle, shortcut: String) -> Result<(), String> {
+    // Unregister old shortcut
+    let old_str = app.state::<CurrentShortcut>().0.lock().unwrap().clone();
+    if let Some(old) = parse_shortcut_string(&old_str) {
+        let _ = app.global_shortcut().unregister(old);
     }
+    // Register new
+    register_palette_shortcut(&app, &shortcut)?;
+    // Update state
+    *app.state::<CurrentShortcut>().0.lock().unwrap() = shortcut.clone();
+    // Save
+    let mut settings = read_settings(&app).await;
+    settings.global_shortcut = shortcut;
+    write_settings(&app, &settings).await
+}
+
+#[tauri::command]
+async fn get_app_version(app: AppHandle) -> Result<String, String> {
+    Ok(app.package_info().version.to_string())
+}
+
+#[tauri::command]
+async fn get_data_stats(app: AppHandle) -> Result<serde_json::Value, String> {
+    let data = read_data(&app).await?;
+    Ok(serde_json::json!({
+        "promptCount": data.prompts.len(),
+        "collectionCount": data.collections.len(),
+        "dataPath": stash_path(&app).to_string_lossy()
+    }))
+}
+
+#[tauri::command]
+async fn show_in_finder(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .args(["-R", &path])
+        .spawn()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
-async fn show_palette(app: AppHandle) -> Result<(), String> {
-    // Save the current frontmost app PID before showing the palette
+async fn open_url(url: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
-    {
-        let pid = get_frontmost_pid();
-        if let Some(state) = app.try_state::<PreviousApp>() {
-            *state.0.lock().unwrap() = pid;
-        }
-    }
-    if let Some(window) = app.get_webview_window("palette") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+    std::process::Command::new("open")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ── Palette commands ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn setup_palette_window(app: AppHandle) -> Result<(), String> {
+    if let Some(palette) = app.get_webview_window("palette") {
+        palette.set_visible_on_all_workspaces(true).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -184,44 +372,14 @@ async fn hide_palette(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("palette") {
         window.hide().map_err(|e| e.to_string())?;
     }
-    // Restore the previous frontmost app
     #[cfg(target_os = "macos")]
     {
-        let pid = app
-            .try_state::<PreviousApp>()
-            .and_then(|s| *s.0.lock().unwrap());
+        let pid = app.try_state::<PreviousApp>().and_then(|s| *s.0.lock().unwrap());
         if let Some(pid) = pid {
             activate_app_by_pid(pid);
         }
     }
     Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn get_frontmost_pid() -> Option<i32> {
-    use std::process::Command;
-    let output = Command::new("osascript")
-        .args(["-e", "tell application \"System Events\" to get unix id of first process whose frontmost is true"])
-        .output()
-        .ok()?;
-    String::from_utf8(output.stdout)
-        .ok()?
-        .trim()
-        .parse::<i32>()
-        .ok()
-}
-
-#[cfg(target_os = "macos")]
-fn activate_app_by_pid(pid: i32) {
-    let _ = std::process::Command::new("osascript")
-        .args([
-            "-e",
-            &format!(
-                "tell application \"System Events\" to set frontmost of first process whose unix id is {} to true",
-                pid
-            ),
-        ])
-        .spawn();
 }
 
 #[tauri::command]
@@ -238,30 +396,21 @@ async fn show_window(app: AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(PreviousApp(Mutex::new(None)))
+        .manage(CurrentShortcut(Mutex::new(default_shortcut())))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            let shortcut = Shortcut::new(
-                Some(Modifiers::SUPER | Modifiers::SHIFT),
-                Code::KeyP,
-            );
-            let app_handle = app.handle().clone();
-            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                if event.state() == ShortcutState::Pressed {
-                    // Save frontmost app PID before showing palette
-                    #[cfg(target_os = "macos")]
-                    {
-                        let pid = get_frontmost_pid();
-                        if let Some(state) = app_handle.try_state::<PreviousApp>() {
-                            *state.0.lock().unwrap() = pid;
-                        }
-                    }
-                    if let Some(window) = app_handle.get_webview_window("palette") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
-            })?;
+            // Load settings and register the palette shortcut
+            let settings_file = settings_path(app.handle());
+            let settings = read_settings_sync(&settings_file);
+            let shortcut_str = settings.global_shortcut.clone();
+
+            // Store the current shortcut
+            *app.state::<CurrentShortcut>().0.lock().unwrap() = shortcut_str.clone();
+
+            // Register shortcut with handler
+            register_palette_shortcut(app.handle(), &shortcut_str)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -274,8 +423,14 @@ pub fn run() {
             copy_to_clipboard,
             show_window,
             setup_palette_window,
-            show_palette,
             hide_palette,
+            load_settings,
+            save_theme,
+            update_global_shortcut,
+            get_app_version,
+            get_data_stats,
+            show_in_finder,
+            open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Stash");

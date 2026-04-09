@@ -6,7 +6,7 @@ Stash is a minimalist, offline-first macOS app for saving, organizing, and using
 Built with Tauri v2 (Rust backend) + React 19 + TypeScript + Tailwind v4 (frontend).
 
 Core philosophy: prompts are first-class citizens, not text files. Every prompt has structure
-(variables, collection, model target, notes) and is designed to be used, not just stored.
+(variables, collection, tags, notes) and is designed to be used, not just stored.
 
 Reference app: ./scratch/ (local clone of github.com/erictli/scratch) — before making any
 changes, read and study:
@@ -34,6 +34,7 @@ npm run tauri icon <file.png>  # Regenerate all icon sizes from a 1024x1024 PNG
 - Radix UI (dialogs, menus, tooltips)
 - Sonner (toasts)
 - @tauri-apps/plugin-clipboard-manager (copying prompts)
+- @tauri-apps/plugin-global-shortcut (global ⌘⇧P palette shortcut)
 - @phosphor-icons/react (icons)
 
 NOT used (unlike Scratch): TipTap, Tantivy, dnd-kit, git integration.
@@ -63,7 +64,7 @@ interface Prompt {
   collectionId: string | null;
   tags: string[];
   modelTarget: string;           // "claude-sonnet" | "claude-opus" | "gpt-4o" | "gemini" | "any"
-  isFavorite: boolean;
+  isPinned: boolean;             // was isFavorite — serde alias handles old JSON
   createdAt: number;             // Unix timestamp
   updatedAt: number;
   lastUsedAt: number | null;
@@ -81,9 +82,19 @@ interface Collection {
 }
 ```
 
+### Settings model (persisted to `{APP_DATA}/settings.json`)
+
+```typescript
+interface AppSettings {
+  theme: "light" | "dark" | "system";   // default: "system"
+  globalShortcut: string;               // default: "Super+Shift+KeyP"
+}
+```
+
 ### Storage
 All data stored in a single `stash.json` file at `{APP_DATA}/stash.json`.
 Structure: `{ prompts: Prompt[], collections: Collection[], version: number }`.
+Settings stored separately at `{APP_DATA}/settings.json`.
 Never store to localStorage or sessionStorage.
 
 ### Context pattern (dual context, same as Scratch)
@@ -108,36 +119,72 @@ function usePromptsActions() { return useContext(PromptsActionsContext) }
 
 Full-width titlebar strip (`h-[52px]`) sits above the 3 panels in `App.tsx` — never add per-panel drag regions, only the top-level strip uses `data-tauri-drag-region`.
 
+## Windows
+
+Only **two** native windows are defined in `tauri.conf.json`:
+
+| Label | Purpose |
+|---|---|
+| `main` | Main 3-panel app (1080×720, visible: false until data loads) |
+| `palette` | Global search palette (640×420, transparent, always-on-top) |
+
+**Settings is NOT a separate window** — it's an in-app modal overlay rendered inside `AppShell`
+via React state (`settingsOpen`). Backdrop: `rgba(0,0,0,0.35)` + `backdrop-filter: blur(6px)`.
+
 ## Key Components
 
 ```
 src/
   assets/
     empty-state-prompts.png     # Illustration for empty prompt list
+    about.png                   # Squirrel illustration used in Settings > About
     icono.png                   # Source app icon (1024x1024, rounded corners)
   components/
     search/
       SearchSpotlight.tsx       # ⌘F search overlay
     prompt-list/
       PromptList.tsx            # Center panel — filtered prompt list + empty state
-      PromptCard.tsx            # Single prompt row (title + optional star)
+      PromptCard.tsx            # Single prompt row (title + optional pin)
     prompt-detail/
       PromptDetail.tsx          # Right panel — title, content, notes, actions
       VariableEditor.tsx        # contenteditable editor with inline {{variable}} chips
     collections/
-      Sidebar.tsx               # Left panel — collections, quick views, new prompt
+      Sidebar.tsx               # Left panel — collections, quick views, search, settings
+    global-palette/
+      GlobalPalette.tsx         # Floating palette opened via ⌘⇧P from any app
+    warm-up/
+      WarmUp.tsx                # Variable-filling modal shown before copying a prompt
+    settings/
+      Settings.tsx              # In-app settings modal (4 sections: Appearance, Shortcuts, Data, About)
     ui/
       index.tsx                 # IconButton, Tooltip (Radix-based)
   context/
     PromptsContext.tsx          # Dual context (data + actions)
-    ThemeContext.tsx
+    ThemeContext.tsx            # Light/dark/system theme, persisted to settings.json
   services/
     storage.ts                  # invoke() wrappers for all backend calls
   types/
     prompt.ts                   # All TypeScript interfaces
   lib/
     utils.ts                    # cn() helper (clsx + tailwind-merge)
+web/
+  index.html                    # Marketing landing page (static, no build step)
 ```
+
+## Settings Modal
+
+Opened via `⌘,` or the "Ajustes" button at the bottom of the sidebar.
+Rendered as an overlay inside `AppShell` — not a native window.
+Closed via `Escape`, `⌘,` again, the ✕ button, or clicking outside.
+
+### Sections
+
+| Section | Content |
+|---|---|
+| Appearance | Theme toggle: Light / Dark / System. Calls `save_theme` invoke. Emits `settings:theme-changed` event so main window updates in real time. |
+| Shortcuts | Configurable global shortcut (click to record). Lists real in-app shortcuts only: ⌘N, ⌘F, ⌘,. |
+| Data | Shows data file path, prompt count, collection count. "Show in Finder" button. |
+| About | App logo, version, description, external links (Website, Feedback, GitHub). |
 
 ## VariableEditor
 
@@ -172,6 +219,20 @@ htmlToValue(el)    // reads DOM back to "hello {{name}}"
 }
 ```
 
+## Global Palette (⌘⇧P)
+
+`src/components/global-palette/GlobalPalette.tsx` — floating overlay accessible from any macOS app.
+- Shortcut registered via `plugin-global-shortcut` at app startup (reads from `settings.json`).
+- Shortcut is user-configurable from Settings > Shortcuts.
+- Saves the frontmost app PID before showing, restores focus on close via AppleScript.
+- Prompts with variables → opens Warm Up modal before copying.
+- Prompts without variables → copies directly + closes.
+
+## Warm Up Modal
+
+`src/components/warm-up/WarmUp.tsx` — variable-filling step shown from the global palette
+when a selected prompt contains `{{variable}}` placeholders.
+
 ## Empty States
 
 ### Prompt list (center panel)
@@ -191,8 +252,9 @@ htmlToValue(el)    // reads DOM back to "hello {{name}}"
 - **Prompt concept** (sidebar item, search results, detail empty state): `Notepad` from @phosphor-icons/react
 - **Notas section divider** in PromptDetail: `Note`
 - **Collections**: `Folder` / `FolderOpen` colored with `collection.color`
-- **Favorites**: `Heart`
-- **Actions**: `Star` (favorite), `Copy` (copy), `Trash` (delete)
+- **Pin/Favorite**: `PushPin`
+- **Settings**: `Gear`
+- **Actions**: `Copy` (copy), `Trash` (delete)
 - All icons `weight="regular"` unless specified. Never change weight on selection/active state.
 
 ## Theming System
@@ -229,19 +291,17 @@ Always use CSS variables for colors, never hardcode hex in components.
 
 ## macOS Native Details
 
-In `src-tauri/tauri.conf.json`:
+In `src-tauri/tauri.conf.json` — main window config:
 ```json
 {
-  "windows": [{
-    "titleBarStyle": "Overlay",
-    "hiddenTitle": true,
-    "trafficLightPosition": { "x": 16, "y": 24 },
-    "width": 1080,
-    "height": 720,
-    "minWidth": 600,
-    "minHeight": 400,
-    "visible": false
-  }]
+  "titleBarStyle": "Overlay",
+  "hiddenTitle": true,
+  "trafficLightPosition": { "x": 16, "y": 24 },
+  "width": 1080,
+  "height": 720,
+  "minWidth": 600,
+  "minHeight": 400,
+  "visible": false
 }
 ```
 
@@ -252,8 +312,9 @@ to force Cargo to relink and embed the new icon.
 
 ## Sidebar
 
-- "Nuevo prompt" button: amber (`--color-stash`), creates prompt assigned to active collection (not Favorites).
-- "Buscar" button: opens SearchSpotlight overlay.
+- "Nuevo prompt" button: amber (`--color-stash`), creates prompt assigned to active collection (not Pinned view).
+- "Buscar" button: opens SearchSpotlight overlay (`⌘F`).
+- "Ajustes" button: opens Settings modal (`⌘,`). No border separator above it.
 - Collections: inline creation (folder icon + transparent input at top of list), saved on Enter, dismissed on blur/Escape.
 - New collections prepend to the list (not append).
 
@@ -269,20 +330,19 @@ to force Cargo to relink and embed the new icon.
 
 | Shortcut | Action |
 |---|---|
+| ⌘⇧P | Open global palette (from any app — configurable) |
 | ⌘N | New prompt |
 | ⌘F | Open search spotlight |
-| ↑/↓ | Navigate prompt list |
+| ⌘, | Open settings modal |
 | Escape | Close modal/overlay |
 
 ## Out of scope for v1
 
-- Versioning (removed — Rust struct retains field with `#[serde(default)]` for compat)
-- Global palette ⌘⇧P (Fase 2)
-- Warm Up modal (Fase 2)
-- Auto-tagging (Fase 2)
-- Settings page (Fase 3)
-- Onboarding (Fase 3)
-- Export / import (Fase 3)
+- Versioning (removed — Rust struct retains `versions` field with `#[serde(default)]` for compat)
+- Auto-tagging (rules exist in PRD but not implemented)
+- Onboarding flow
+- Export / import `stash.json`
+- ⌘S save, ⌘D duplicate, ⌘\ toggle sidebar (not implemented — don't show in Settings shortcuts list)
 
 ## Releasing
 
