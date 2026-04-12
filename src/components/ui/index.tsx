@@ -34,7 +34,7 @@ export const IconButton = forwardRef<
   <button
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)] transition-colors focus-visible:outline-none disabled:opacity-50",
+      "inline-flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)] active:scale-[0.9] active:bg-[var(--color-bg-emphasis)] transition-all duration-100 focus-visible:outline-none disabled:opacity-50",
       size === "md" && "w-7 h-7",
       size === "sm" && "w-6 h-6",
       className

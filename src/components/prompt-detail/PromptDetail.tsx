@@ -180,7 +180,7 @@ export function PromptDetail() {
 
   return (
     <div className="relative flex flex-col flex-1 h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4">
+      <div key={selectedId} className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4 animate-content-in">
 
         {/* Collection + actions row */}
         <div className="flex items-center justify-between">
@@ -320,9 +320,9 @@ export function PromptDetail() {
       </div>
 
       {/* Warm-Up modal */}
-      {warmUpOpen && prompt && (
+      {warmUpOpen && prompt && createPortal(
         <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setWarmUpOpen(false); }}
         >
           <div className="w-full max-w-lg mx-6 bg-[var(--color-bg)] rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden max-h-[80vh] flex flex-col">
@@ -335,7 +335,8 @@ export function PromptDetail() {
               onClose={() => setWarmUpOpen(false)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete tag confirm modal */}

@@ -32,6 +32,11 @@ export function PromptList() {
   const [tagSearch, setTagSearch] = useState("");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const selectedCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    selectedCardRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId]);
 
   // Base list filtered by collection/pin view
   const baseList = useMemo(() => {
@@ -200,6 +205,7 @@ export function PromptList() {
           filtered.map((p) => (
             <PromptCard
               key={p.id}
+              ref={p.id === selectedId ? selectedCardRef : null}
               prompt={p}
               selected={p.id === selectedId}
               onClick={() => selectPrompt(p.id)}

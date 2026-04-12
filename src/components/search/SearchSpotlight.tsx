@@ -91,9 +91,10 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
         {/* Results */}
         <div className="max-h-[360px] overflow-y-auto py-2">
           {filtered.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-center text-[var(--color-text-muted)]">
-              No results
-            </p>
+            <div className="flex flex-col items-center gap-2 px-5 py-8 text-[var(--color-text-muted)]">
+              <Notepad size={32} weight="thin" />
+              <p className="text-sm">No prompts found</p>
+            </div>
           ) : (
             filtered.map((p, i) => {
               const active = i === activeIndex;

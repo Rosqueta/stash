@@ -92,7 +92,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
       <div className="px-2 pt-3 pb-3 space-y-1 shrink-0">
         <button
           onClick={() => void handleNew()}
-          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium bg-[var(--color-stash)] text-white hover:opacity-90 transition-opacity"
+          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium bg-[var(--color-stash)] text-white hover:opacity-90 active:opacity-75 active:scale-[0.98] transition-all duration-100"
         >
           <div className="flex items-center gap-2">
             <Plus size={15} weight="regular" />

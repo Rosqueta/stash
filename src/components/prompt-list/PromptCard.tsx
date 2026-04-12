@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { forwardRef, memo } from "react";
 import { PushPin } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import type { Prompt } from "../../types/prompt";
@@ -9,13 +9,14 @@ interface PromptCardProps {
   onClick: () => void;
 }
 
-export const PromptCard = memo(function PromptCard({
+export const PromptCard = memo(forwardRef<HTMLDivElement, PromptCardProps>(function PromptCard({
   prompt,
   selected,
   onClick,
-}: PromptCardProps) {
+}, ref) {
   return (
     <div
+      ref={ref}
       onClick={onClick}
       className={cn(
         "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors",
@@ -32,4 +33,4 @@ export const PromptCard = memo(function PromptCard({
       )}
     </div>
   );
-});
+}));
