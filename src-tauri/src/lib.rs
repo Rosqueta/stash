@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tokio::fs;
 
@@ -10,6 +11,7 @@ use tokio::fs;
 
 struct PreviousApp(Mutex<Option<i32>>);
 struct CurrentShortcut(Mutex<String>);
+struct DataDir(Mutex<PathBuf>);
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -67,6 +69,8 @@ pub struct AppSettings {
     pub theme: String,
     #[serde(default = "default_shortcut")]
     pub global_shortcut: String,
+    #[serde(default)]
+    pub data_dir: Option<String>,
 }
 
 fn default_theme() -> String { "system".to_string() }
@@ -74,18 +78,36 @@ fn default_shortcut() -> String { "Super+Shift+KeyP".to_string() }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { theme: default_theme(), global_shortcut: default_shortcut() }
+        Self { theme: default_theme(), global_shortcut: default_shortcut(), data_dir: None }
     }
 }
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
+fn default_data_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    PathBuf::from(home).join("Documents").join("Stash")
+}
+
+fn resolve_data_dir(settings: &AppSettings) -> PathBuf {
+    settings.data_dir.as_ref().map(PathBuf::from).unwrap_or_else(default_data_dir)
+}
+
 fn stash_path(app: &AppHandle) -> PathBuf {
-    app.path().app_data_dir().expect("app data dir").join("stash.json")
+    app.state::<DataDir>().0.lock().unwrap().join("stash.json")
 }
 
 fn settings_path(app: &AppHandle) -> PathBuf {
     app.path().app_data_dir().expect("app data dir").join("settings.json")
+}
+
+fn migrate_legacy_data(legacy: &std::path::Path, new_path: &std::path::Path) {
+    if legacy.exists() && !new_path.exists() {
+        if let Some(parent) = new_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::copy(legacy, new_path);
+    }
 }
 
 fn read_settings_sync(path: &std::path::Path) -> AppSettings {
@@ -404,19 +426,69 @@ async fn show_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// ── Data folder command ───────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn change_data_folder(app: AppHandle) -> Result<Option<String>, String> {
+    use tokio::sync::oneshot;
+    let (tx, rx) = oneshot::channel::<Option<PathBuf>>();
+
+    app.dialog().file().pick_folder(move |folder| {
+        let _ = tx.send(folder.and_then(|f| f.into_path().ok()));
+    });
+
+    let picked = rx.await.map_err(|e| e.to_string())?;
+
+    if let Some(folder_path) = picked {
+        let new_stash = folder_path.join("stash.json");
+
+        // Copy current data to new location
+        let current = stash_path(&app);
+        if current.exists() {
+            if let Some(parent) = new_stash.parent() {
+                fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+            }
+            fs::copy(&current, &new_stash).await.map_err(|e| e.to_string())?;
+        } else {
+            fs::create_dir_all(&folder_path).await.map_err(|e| e.to_string())?;
+        }
+
+        // Update state
+        *app.state::<DataDir>().0.lock().unwrap() = folder_path.clone();
+
+        // Save to settings
+        let mut settings = read_settings(&app).await;
+        settings.data_dir = Some(folder_path.to_string_lossy().to_string());
+        write_settings(&app, &settings).await?;
+
+        Ok(Some(new_stash.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
 // ── App entry point ───────────────────────────────────────────────────────────
 
 pub fn run() {
     tauri::Builder::default()
         .manage(PreviousApp(Mutex::new(None)))
         .manage(CurrentShortcut(Mutex::new(default_shortcut())))
+        .manage(DataDir(Mutex::new(default_data_dir())))
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            // Load settings and register the palette shortcut
+            // Load settings
             let settings_file = settings_path(app.handle());
             let settings = read_settings_sync(&settings_file);
             let shortcut_str = settings.global_shortcut.clone();
+
+            // Resolve and store data dir
+            let data_dir = resolve_data_dir(&settings);
+            let new_stash = data_dir.join("stash.json");
+            let legacy_stash = app.path().app_data_dir().expect("app data dir").join("stash.json");
+            migrate_legacy_data(&legacy_stash, &new_stash);
+            *app.state::<DataDir>().0.lock().unwrap() = data_dir;
 
             // Store the current shortcut
             *app.state::<CurrentShortcut>().0.lock().unwrap() = shortcut_str.clone();
@@ -444,6 +516,7 @@ pub fn run() {
             get_data_stats,
             show_in_finder,
             open_url,
+            change_data_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Stash");

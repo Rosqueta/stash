@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Sun, Keyboard, Folder, Info, Globe, ChatTeardropDots, GithubLogo,
+  Sun, Keyboard, Folder, FolderOpen, Info, Globe, ChatTeardropDots, GithubLogo,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo } from "@tauri-apps/api/event";
@@ -224,25 +224,41 @@ function ShortcutsSection({ globalShortcut, onShortcutChange }: {
 function DataSection() {
   const [stats, setStats] = useState<DataStats | null>(null);
 
-  useEffect(() => {
+  const loadStats = () => {
     invoke<DataStats>("get_data_stats").then(setStats).catch(console.error);
-  }, []);
+  };
 
-  const dataPath = stats?.dataPath ?? "~/Library/Application Support/Stash/stash.json";
+  useEffect(() => { loadStats(); }, []);
+
+  const dataPath = stats?.dataPath ?? "~/Documents/Stash/stash.json";
   const displayPath = dataPath.replace(/^\/Users\/[^/]+/, "~");
+
+  const handleChangeFolder = async () => {
+    const newPath = await invoke<string | null>("change_data_folder");
+    if (newPath !== null) loadStats();
+  };
 
   return (
     <div>
       <SectionTitle>Data</SectionTitle>
       <SettingsGroup label="Storage">
         <SettingsRow label="Data file" description={displayPath}>
-          <button
-            onClick={() => void invoke("show_in_finder", { path: dataPath })}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
-          >
-            <Folder size={13} />
-            Show in Finder
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void invoke("show_in_finder", { path: dataPath })}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
+            >
+              <Folder size={13} />
+              Open folder
+            </button>
+            <button
+              onClick={() => void handleChangeFolder()}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
+            >
+              <FolderOpen size={13} />
+              Change folder
+            </button>
+          </div>
         </SettingsRow>
         <SettingsRow label="Prompts">
           <span className="text-sm font-semibold text-[var(--color-text)]">
@@ -337,7 +353,7 @@ export function Settings() {
               className={cn(
                 "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
                 section === item.id
-                  ? "bg-[var(--color-stash)]/10 text-[var(--color-stash)] font-medium"
+                  ? "bg-[var(--color-bg-muted)] text-[var(--color-text)] font-medium"
                   : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]"
               )}
             >
@@ -350,7 +366,7 @@ export function Settings() {
 
       {/* Content */}
       <main className={cn(
-        "flex-1 overflow-y-auto bg-[var(--color-bg-secondary)]",
+        "flex-1 overflow-y-auto bg-[var(--color-bg)]",
         section === "about" ? "flex flex-col" : "px-8 py-8"
       )}>
         {section === "appearance" && <AppearanceSection />}
