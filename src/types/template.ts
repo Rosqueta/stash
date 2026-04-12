@@ -7,7 +7,7 @@ export interface Template {
   id: string;
   title: string;
   category: string;
-  tags: string[];
+  tags?: string[];
   variables?: string[];
   content: string;
 }

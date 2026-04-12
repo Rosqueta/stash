@@ -3,7 +3,7 @@ import type { Template, TemplatesData } from "../types/template";
 import type { Prompt } from "../types/prompt";
 
 const TEMPLATES_URL =
-  "https://raw.githubusercontent.com/verogasco/stash-templates/main/dist/templates.json";
+  "https://raw.githubusercontent.com/Rosqueta/stash-templates/main/dist/templates.json";
 
 export async function fetchTemplates(): Promise<TemplatesData> {
   try {
@@ -29,7 +29,7 @@ export function buildPromptFromTemplate(
     title: template.title,
     content: template.content,
     collectionId,
-    tags: template.tags,
+    tags: [],
     modelTarget: "any",
     isPinned: false,
     createdAt: now,
