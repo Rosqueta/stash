@@ -467,6 +467,24 @@ async fn change_data_folder(app: AppHandle) -> Result<Option<String>, String> {
     }
 }
 
+// ── Template cache commands ───────────────────────────────────────────────────
+
+#[tauri::command]
+async fn get_templates_cache(app: AppHandle) -> Result<Option<String>, String> {
+    let path = app.path().app_data_dir().expect("app data dir").join("templates-cache.json");
+    if path.exists() {
+        Ok(Some(fs::read_to_string(path).await.map_err(|e| e.to_string())?))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+async fn set_templates_cache(app: AppHandle, json: String) -> Result<(), String> {
+    let path = app.path().app_data_dir().expect("app data dir").join("templates-cache.json");
+    fs::write(path, json).await.map_err(|e| e.to_string())
+}
+
 // ── App entry point ───────────────────────────────────────────────────────────
 
 pub fn run() {
@@ -517,6 +535,8 @@ pub fn run() {
             show_in_finder,
             open_url,
             change_data_folder,
+            get_templates_cache,
+            set_templates_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Stash");

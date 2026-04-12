@@ -9,6 +9,7 @@ import { PromptsProvider } from "./context/PromptsContext";
 import { Sidebar } from "./components/collections/Sidebar";
 import { PromptList } from "./components/prompt-list/PromptList";
 import { PromptDetail } from "./components/prompt-detail/PromptDetail";
+import { LibraryPanel } from "./components/library/LibraryPanel";
 import { SearchSpotlight } from "./components/search/SearchSpotlight";
 import { GlobalPalette } from "./components/global-palette/GlobalPalette";
 import { Settings } from "./components/settings/Settings";
@@ -18,7 +19,7 @@ import { TooltipProvider } from "./components/ui";
 const windowLabel = getCurrentWebviewWindow().label;
 
 function AppShell() {
-  const { isLoading } = usePromptsData();
+  const { isLoading, activeCollectionId } = usePromptsData();
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -57,8 +58,14 @@ function AppShell() {
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onSearchOpen={() => setSearchOpen(true)} onSettingsOpen={openSettings} />
-        <PromptList />
-        <PromptDetail />
+        {activeCollectionId === "library" ? (
+          <LibraryPanel />
+        ) : (
+          <>
+            <PromptList />
+            <PromptDetail />
+          </>
+        )}
       </div>
       {searchOpen && <SearchSpotlight onClose={() => setSearchOpen(false)} />}
       {settingsOpen && (

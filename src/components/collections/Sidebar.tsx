@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gear } from "@phosphor-icons/react";
+import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gear, Books } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { IconButton, Tooltip } from "../ui";
@@ -45,14 +45,16 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
 
   const handleNew = useCallback(async () => {
     try {
-      const collectionId = activeCollectionId !== "pinned" ? activeCollectionId : null;
+      const isSpecialView = activeCollectionId === "pinned" || activeCollectionId === "library";
+      const collectionId = isSpecialView ? null : activeCollectionId;
       const prompt = createNewPrompt(collectionId);
       await savePrompt(prompt);
+      if (activeCollectionId === "library") setActiveCollection(null);
       selectPrompt(prompt.id);
     } catch {
       // Error feedback is handled in context actions.
     }
-  }, [activeCollectionId, savePrompt, selectPrompt]);
+  }, [activeCollectionId, savePrompt, selectPrompt, setActiveCollection]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -124,6 +126,11 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             label="Pinned"
             active={activeCollectionId === "pinned"}
             onClick={() => setActiveCollection("pinned")}
+          />
+          <SidebarItem
+            label="Library"
+            active={activeCollectionId === "library"}
+            onClick={() => setActiveCollection("library")}
           />
         </section>
 
@@ -218,6 +225,7 @@ function SidebarItem({
     >
       {label === "Prompts" && <Notepad size={16} weight="regular" />}
       {label === "Pinned" && <PushPin size={16} weight="regular" />}
+      {label === "Library" && <Books size={16} weight="regular" />}
       <span>{label}</span>
     </button>
   );
