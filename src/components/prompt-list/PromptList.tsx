@@ -3,6 +3,7 @@ import { Tag, MagnifyingGlass, Check } from "@phosphor-icons/react";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { PromptCard } from "./PromptCard";
 import emptyStateImg from "../../assets/empty-state-prompts.png";
+import emptyStateImgDark from "../../assets/dark-empty-state-prompts.png";
 import type { Prompt } from "../../types/prompt";
 
 function createNewPrompt(collectionId: string | null = null): Prompt {
@@ -177,11 +178,8 @@ export function PromptList() {
       <div className="flex-1 overflow-y-auto px-2 pt-1 pb-2 space-y-0.5">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
-            <img
-              src={emptyStateImg}
-              alt=""
-              className="w-28 h-28 object-contain"
-            />
+            <img src={emptyStateImg} alt="" className="w-28 h-28 object-contain dark:hidden" />
+            <img src={emptyStateImgDark} alt="" className="w-28 h-28 object-contain hidden dark:block" />
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-semibold text-[var(--color-text)]">
                 Your stash is empty

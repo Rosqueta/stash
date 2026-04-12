@@ -20,14 +20,14 @@
 
 /* Theme color tokens — Dark mode */
 .dark {
-  --color-bg: rgb(22, 20, 19);
-  --color-bg-secondary: rgb(14, 12, 11);
+  --color-bg: #191A24;
+  --color-bg-secondary: #13141D;
   --color-bg-muted: rgba(250, 249, 249, 0.05);
   --color-bg-emphasis: rgba(250, 249, 249, 0.08);
   --color-text: #fafaf9;
-  --color-text-muted: #a8a29e;
+  --color-text-muted: #9A9AA3;
   --color-text-inverse: #0c0a09;
-  --color-border: rgba(250, 249, 249, 0.07);
+  --color-border: #282935;
   --color-accent: #fafaf9;
   --color-stash: #f59e0b;
 }

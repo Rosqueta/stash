@@ -7,6 +7,7 @@ import { emitTo } from "@tauri-apps/api/event";
 import { cn } from "../../lib/utils";
 import { useTheme } from "../../context/ThemeContext";
 import aboutImg from "../../assets/about.png";
+import aboutImgDark from "../../assets/dark-about.png";
 
 type Section = "appearance" | "shortcuts" | "data" | "about";
 
@@ -292,7 +293,8 @@ function AboutSection() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center px-8 pb-6">
-      <img src={aboutImg} alt="Stash" className="w-28 h-28 object-contain mb-4" />
+      <img src={aboutImg} alt="Stash" className="w-28 h-28 object-contain mb-4 dark:hidden" />
+      <img src={aboutImgDark} alt="Stash" className="w-28 h-28 object-contain mb-4 hidden dark:block" />
       <h2 className="text-xl font-bold text-[var(--color-text)]">Stash</h2>
       <p className="text-sm text-[var(--color-text-muted)] mt-1">Version {version}</p>
       <p className="text-sm text-[var(--color-text-muted)] mt-4 leading-relaxed">

@@ -36,7 +36,6 @@ export default defineConfig(async () => ({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        landing: resolve(__dirname, "landing.html"),
       },
     },
   },
