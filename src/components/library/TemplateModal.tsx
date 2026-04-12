@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X } from "@phosphor-icons/react";
+import { X, Folder, CaretDown } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { cn } from "../../lib/utils";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { IconButton } from "../ui";
 import { buildPromptFromTemplate } from "../../services/templateService";
 import type { Template } from "../../types/template";
 
@@ -18,7 +19,7 @@ function renderContent(content: string) {
     if (/^\{\{[^}]+\}\}$/.test(part)) {
       return (
         <span key={i} data-var={part.slice(2, -2)}>
-          {part}
+          {part.slice(2, -2)}
         </span>
       );
     }
@@ -72,12 +73,9 @@ export function TemplateModal({ template, onClose }: Props) {
           <h2 className="text-lg font-bold text-[var(--color-text)] leading-snug">
             {template.title}
           </h2>
-          <button
-            onClick={onClose}
-            className="mt-0.5 flex items-center justify-center w-6 h-6 rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] transition-colors shrink-0"
-          >
+          <IconButton size="sm" onClick={onClose} className="mt-0.5 shrink-0">
             <X size={14} />
-          </button>
+          </IconButton>
         </div>
 
         {/* Content */}
@@ -89,33 +87,59 @@ export function TemplateModal({ template, onClose }: Props) {
 
         {/* Footer — collection selector + import */}
         <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
-          <div className="flex items-center gap-2 mb-2.5">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--color-text-muted)] shrink-0">Add to:</span>
-            <div className="flex flex-wrap gap-1.5 flex-1">
-              <CollectionPill
-                label="No collection"
-                selected={selectedCollectionId === null}
-                color={null}
-                onClick={() => setSelectedCollectionId(null)}
-              />
-              {collections.map((c) => (
-                <CollectionPill
-                  key={c.id}
-                  label={c.name}
-                  selected={selectedCollectionId === c.id}
-                  color={c.color}
-                  onClick={() => setSelectedCollectionId(c.id)}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-end">
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors group focus:outline-none">
+                  {(() => {
+                    const col = collections.find((c) => c.id === selectedCollectionId) ?? null;
+                    return (
+                      <>
+                        <Folder size={13} weight="regular" style={col ? { color: col.color } : undefined} />
+                        <span>{col ? col.name : "No collection"}</span>
+                        <CaretDown size={10} className="opacity-0 group-hover:opacity-60 transition-opacity" />
+                      </>
+                    );
+                  })()}
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  side="top"
+                  align="start"
+                  sideOffset={4}
+                  className="z-50 min-w-[180px] rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg p-1 animate-in fade-in-0 zoom-in-95"
+                >
+                  <DropdownMenu.Item
+                    onSelect={() => setSelectedCollectionId(null)}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-muted)] cursor-pointer outline-none hover:bg-[var(--color-bg-muted)] transition-colors"
+                  >
+                    <Folder size={14} weight="regular" />
+                    No collection
+                  </DropdownMenu.Item>
+                  {collections.length > 0 && (
+                    <DropdownMenu.Separator className="my-1 h-px bg-[var(--color-border)]" />
+                  )}
+                  {collections.map((c) => (
+                    <DropdownMenu.Item
+                      key={c.id}
+                      onSelect={() => setSelectedCollectionId(c.id)}
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text)] cursor-pointer outline-none hover:bg-[var(--color-bg-muted)] transition-colors"
+                    >
+                      <Folder size={14} weight="regular" style={{ color: c.color }} />
+                      {c.name}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
             <button
               onClick={() => void handleImport()}
               disabled={importing}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-[var(--color-stash)] text-white hover:opacity-90 active:opacity-75 active:scale-[0.98] transition-all duration-100 disabled:opacity-50"
+              className="ml-auto flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-[var(--color-stash)] text-white hover:opacity-90 active:opacity-75 active:scale-[0.98] transition-all duration-100 disabled:opacity-50"
             >
-              {importing ? "Importing…" : "Add to my Stash"}
+              {importing ? "Importing…" : "Add to my prompts"}
             </button>
           </div>
         </div>
@@ -125,31 +149,3 @@ export function TemplateModal({ template, onClose }: Props) {
   );
 }
 
-function CollectionPill({
-  label,
-  selected,
-  color,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  color: string | null;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs transition-colors",
-        selected
-          ? "bg-[var(--color-stash)]/15 text-[var(--color-stash)] font-medium"
-          : "bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-      )}
-    >
-      {color && (
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-      )}
-      {label}
-    </button>
-  );
-}

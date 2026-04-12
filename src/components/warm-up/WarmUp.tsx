@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { X, Check, Copy, ArrowRight } from "@phosphor-icons/react";
+import { IconButton } from "../ui";
 import {
   parseSegments,
   resolveVariables,
@@ -211,19 +212,15 @@ export function WarmUp({ prompt, onCopy, onCopySuccess, onClose }: WarmUpProps) 
   return (
     <div className="flex flex-col h-full bg-[var(--color-bg)]">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-[var(--color-border)]">
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--color-text)] truncate">
             {prompt.title || "Untitled"}
           </h2>
         </div>
-        <button
-          onClick={onClose}
-          disabled={closeDisabled}
-          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)] transition-colors"
-        >
+        <IconButton size="sm" onClick={onClose} disabled={closeDisabled} className="shrink-0">
           <X size={14} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Content */}
