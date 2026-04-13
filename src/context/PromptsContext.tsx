@@ -9,17 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
-function CopiedIcon() {
-  const [active, setActive] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setActive(true)); }, []);
-  return (
-    <svg viewBox="0 0 28 28" className={`w-5 h-5 ${active ? "checkmark-active" : ""}`} fill="none">
-      <circle className="ring-circle" cx="14" cy="14" r="13" stroke="var(--color-stash)" strokeWidth="1.5" />
-      <path className="ring-check" d="M9 14l3.5 3.5L19 10" stroke="var(--color-stash)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 import { toast } from "sonner";
+import { ConfirmIcon } from "../components/ui";
 import type { Collection, Prompt } from "../types/prompt";
 import * as storage from "../services/storage";
 import { showWindow } from "../services/storage";
@@ -192,7 +183,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         next[idx] = updated;
         return next;
       });
-      if (!silent) toast("Copied", { icon: <CopiedIcon />, duration: 2000 });
+      if (!silent) toast("Copied", { icon: <ConfirmIcon />, duration: 2000 });
     } catch {
       toast.error("Failed to copy");
     }

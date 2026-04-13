@@ -1,6 +1,22 @@
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useEffect, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { toast } from "sonner";
 import { cn } from "../../lib/utils";
+
+export function ConfirmIcon() {
+  const [active, setActive] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setActive(true)); }, []);
+  return (
+    <svg viewBox="0 0 28 28" className={`w-5 h-5 ${active ? "checkmark-active" : ""}`} fill="none">
+      <circle className="ring-circle" cx="14" cy="14" r="13" stroke="var(--color-stash)" strokeWidth="1.5" />
+      <path className="ring-check" d="M9 14l3.5 3.5L19 10" stroke="var(--color-stash)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function toastSuccess(message: string) {
+  toast(message, { icon: <ConfirmIcon />, duration: 2000 });
+}
 
 export function TooltipProvider({ children }: { children: ReactNode }) {
   return (

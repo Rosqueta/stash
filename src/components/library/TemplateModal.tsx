@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Folder, CaretDown } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { toastSuccess } from "../ui";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { IconButton } from "../ui";
@@ -46,7 +47,7 @@ export function TemplateModal({ template, onClose }: Props) {
     try {
       const prompt = buildPromptFromTemplate(template, selectedCollectionId);
       await savePrompt(prompt);
-      toast.success("Added to your Stash");
+      toastSuccess("Added to your prompts");
       onClose();
     } catch {
       toast.error("Failed to import template");
