@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -232,16 +234,23 @@ fn register_palette_shortcut(app: &AppHandle, shortcut_str: &str) -> Result<(), 
     app.global_shortcut()
         .on_shortcut(shortcut, move |_app, _shortcut, event| {
             if event.state() == ShortcutState::Pressed {
+                // Capture the frontmost PID asynchronously so it doesn't
+                // block the shortcut thread (osascript can take 200-500 ms).
                 #[cfg(target_os = "macos")]
                 {
-                    let pid = get_frontmost_pid();
-                    if let Some(state) = app_handle.try_state::<PreviousApp>() {
-                        *state.0.lock().unwrap() = pid;
-                    }
+                    let state_handle = app_handle.clone();
+                    std::thread::spawn(move || {
+                        let pid = get_frontmost_pid();
+                        if let Some(state) = state_handle.try_state::<PreviousApp>() {
+                            *state.0.lock().unwrap() = pid;
+                        }
+                    });
                 }
                 if let Some(window) = app_handle.get_webview_window("palette") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                    #[cfg(target_os = "macos")]
+                    show_palette_macos(&window);
+                    #[cfg(not(target_os = "macos"))]
+                    { let _ = window.show(); let _ = window.set_focus(); }
                 }
             }
         })
@@ -249,6 +258,52 @@ fn register_palette_shortcut(app: &AppHandle, shortcut_str: &str) -> Result<(), 
 }
 
 // ── macOS helpers ─────────────────────────────────────────────────────────────
+
+/// CGWindowLevelForKey is a CoreGraphics function that maps a window level key
+/// to the actual integer window level used by the compositor.
+/// kCGScreenSaverWindowLevelKey = 13 → level ≈ 1000, well above NSFloatingWindowLevel (3).
+/// This is the level needed to float above fullscreen Space overlays.
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn CGWindowLevelForKey(key: i32) -> i32;
+}
+
+/// Apply collection behavior and window level so the palette can overlay
+/// fullscreen Spaces. Called at setup AND on every show so Tauri can't
+/// silently reset the level between calls.
+#[cfg(target_os = "macos")]
+fn configure_palette_window(ns_window: *mut objc::runtime::Object) {
+    use objc::{msg_send, sel, sel_impl};
+    unsafe {
+        // NSWindowCollectionBehaviorCanJoinAllSpaces    = 1 << 0 =   1
+        // NSWindowCollectionBehaviorTransient           = 1 << 3 =   8
+        // NSWindowCollectionBehaviorFullScreenAuxiliary = 1 << 8 = 256
+        let _: () = msg_send![ns_window, setCollectionBehavior: 1u64 | 8u64 | 256u64];
+
+        // kCGScreenSaverWindowLevelKey = 13; gives a level high enough to
+        // penetrate the fullscreen Space curtain without requiring root privs.
+        let level = CGWindowLevelForKey(13);
+        let _: () = msg_send![ns_window, setLevel: level as i64];
+    }
+}
+
+/// Show the palette with the correct activation sequence for macOS.
+/// Must run configure_palette_window first (in case Tauri reset the level),
+/// then activate the app, then bring the window forward — all before returning.
+#[cfg(target_os = "macos")]
+fn show_palette_macos(window: &tauri::WebviewWindow) {
+    use objc::{msg_send, sel, sel_impl, runtime::Object};
+    if let Ok(raw) = window.ns_window() {
+        let ns_window = raw as *mut Object;
+        unsafe {
+            configure_palette_window(ns_window);
+            let cls = objc::runtime::Class::get("NSApplication").unwrap();
+            let ns_app: *mut Object = msg_send![cls, sharedApplication];
+            let _: () = msg_send![ns_app, activateIgnoringOtherApps: objc::runtime::YES];
+            let _: () = msg_send![ns_window, makeKeyAndOrderFront: std::ptr::null_mut::<Object>()];
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 fn get_frontmost_pid() -> Option<i32> {
@@ -397,6 +452,12 @@ async fn open_url(url: String) -> Result<(), String> {
 #[tauri::command]
 async fn setup_palette_window(app: AppHandle) -> Result<(), String> {
     if let Some(palette) = app.get_webview_window("palette") {
+        #[cfg(target_os = "macos")]
+        if let Ok(raw) = palette.ns_window() {
+            use objc::runtime::Object;
+            configure_palette_window(raw as *mut Object);
+        }
+        #[cfg(not(target_os = "macos"))]
         palette.set_visible_on_all_workspaces(true).map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -514,6 +575,79 @@ pub fn run() {
             // Register shortcut with handler
             register_palette_shortcut(app.handle(), &shortcut_str)?;
 
+            // ── Menubar icon ─────────────────────────────────────────────────
+            let show_item = MenuItem::with_id(app, "show", "Show app", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+
+            TrayIconBuilder::new()
+                .icon(icon)
+                .icon_as_template(true)
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
+                .tooltip("Stash")
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        #[cfg(target_os = "macos")]
+                        {
+                            let pid = get_frontmost_pid();
+                            if let Some(state) = app.try_state::<PreviousApp>() {
+                                *state.0.lock().unwrap() = pid;
+                            }
+                        }
+                        if let Some(window) = app.get_webview_window("palette") {
+                            #[cfg(target_os = "macos")]
+                            show_palette_macos(&window);
+                            #[cfg(not(target_os = "macos"))]
+                            { let _ = window.show(); let _ = window.set_focus(); }
+                        }
+                    }
+                })
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .build(app)?;
+
+            // Closing the main window hides it instead of quitting the app.
+            // The app stays alive in the menubar; only "Quit" terminates it.
+            if let Some(win) = app.get_webview_window("main") {
+                let win_clone = win.clone();
+                win.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
+            }
+
+            // Configure palette collection behavior and window level at startup.
+            // show_palette_macos() re-applies these on every show, so Tauri
+            // cannot silently reset them between invocations.
+            if let Some(palette) = app.get_webview_window("palette") {
+                #[cfg(target_os = "macos")]
+                if let Ok(raw) = palette.ns_window() {
+                    use objc::runtime::Object;
+                    configure_palette_window(raw as *mut Object);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -538,6 +672,19 @@ pub fn run() {
             get_templates_cache,
             set_templates_cache,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Stash");
+        .build(tauri::generate_context!())
+        .expect("error while running Stash")
+        .run(|app, event| {
+            // On macOS, clicking the Dock icon when all windows are hidden
+            // should bring the main window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+                if !has_visible_windows {
+                    if let Some(win) = app.get_webview_window("main") {
+                        let _ = win.show();
+                        let _ = win.set_focus();
+                    }
+                }
+            }
+        });
 }
