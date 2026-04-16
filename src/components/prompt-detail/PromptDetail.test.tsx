@@ -57,6 +57,20 @@ vi.mock("../../services/storage", () => ({
   deleteCollection: vi.fn(async (id: string) => {
     mockCollections = mockCollections.filter((collection) => collection.id !== id);
   }),
+  renameTag: vi.fn(async (oldName: string, newName: string) => {
+    mockPrompts = mockPrompts.map((p) => ({
+      ...p,
+      tags: p.tags.map((t) => (t === oldName ? newName : t)),
+    }));
+    return mockPrompts.map(clonePrompt);
+  }),
+  deleteTag: vi.fn(async (name: string) => {
+    mockPrompts = mockPrompts.map((p) => ({
+      ...p,
+      tags: p.tags.filter((t) => t !== name),
+    }));
+    return mockPrompts.map(clonePrompt);
+  }),
   copyToClipboard: vi.fn(async () => undefined),
   showWindow: vi.fn(async () => undefined),
 }));
