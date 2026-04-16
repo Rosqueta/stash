@@ -146,7 +146,9 @@ async fn write_data(app: &AppHandle, data: &StashData) -> Result<(), String> {
         fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
-    fs::write(&path, json).await.map_err(|e| e.to_string())
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, json).await.map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).await.map_err(|e| e.to_string())
 }
 
 async fn read_settings(app: &AppHandle) -> AppSettings {
@@ -164,7 +166,9 @@ async fn write_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), S
         fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(&path, json).await.map_err(|e| e.to_string())
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, json).await.map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).await.map_err(|e| e.to_string())
 }
 
 // ── Shortcut helpers ──────────────────────────────────────────────────────────
