@@ -17,7 +17,7 @@ Stash es la primera app macOS diseñada específicamente para gestionar prompts 
 
 ### 1.3 Principios de diseño
 
-- **Offline-first.** Sin cuenta, sin cloud, sin internet. Los datos viven en un fichero JSON local que el usuario controla.
+- **Offline-first para tus prompts.** Sin cuenta, sin cloud. Los prompts propios viven en un fichero JSON local que el usuario controla. La Library muestra templates remotos (con caché offline como fallback), pero esta dependencia de red es opcional y no afecta al uso principal de la app.
 - **Fricción cero en el uso.** El camino desde «quiero usar este prompt» hasta «está en mi portapapeles listo» debe ser de 2-3 pasos máximo.
 - **Los prompts tienen estructura.** Variables, tags, notas y colecciones son parte del dato.
 - **Minimalismo con carácter.** Inspirado en Scratch (`./scratch/`) — interfaz limpia, nativa macOS, con personalidad.
@@ -65,11 +65,12 @@ Toda la persistencia y clipboard vive en Rust (`src-tauri/src/lib.rs`). El front
 
 ### Almacenamiento
 
-Dos ficheros en `{APP_DATA}/`:
 ```
-stash.json     → { prompts: [], collections: [], version: 1 }
-settings.json  → { theme: "system", globalShortcut: "Super+Shift+KeyP" }
+~/Documents/Stash/stash.json  → { prompts: [], collections: [], version: 1 }
+{APP_DATA}/settings.json       → { theme: "system", globalShortcut: "...", dataDir: null }
 ```
+
+La ruta de `stash.json` es el valor por defecto. El usuario puede cambiarla desde Settings > Data; el valor personalizado se guarda como `dataDir` en `settings.json`.
 
 ### Ventanas nativas
 
@@ -118,6 +119,7 @@ interface Collection {
 interface AppSettings {
   theme: "light" | "dark" | "system";
   globalShortcut: string;        // formato: "Super+Shift+KeyP"
+  dataDir: string | null;        // null → usa ~/Documents/Stash
 }
 ```
 
@@ -131,13 +133,19 @@ interface AppSettings {
 - Ordenada por `lastUsedAt` desc por defecto.
 - Card: título, colección, pin indicator.
 - Selección con clic.
-- Búsqueda debounced 150ms sobre title + content (SearchSpotlight).
+- Filtro por tags (dropdown con búsqueda, multi-select).
 
 **Detalle (panel derecho)**
 - Título editable inline.
-- Contenido con `{{variables}}` resaltadas como chips amber (VariableEditor).
-- Sección Notas: textarea libre con autosave.
+- Contenido con `{{variables}}` resaltadas como chips (VariableEditor).
+- Sección Notes: textarea libre con autosave.
 - Acciones: copiar, eliminar, pinear.
+- Asignación de colección y gestión de tags desde el detalle.
+
+**Búsqueda (SearchSpotlight)**
+- `⌘F` — overlay con input, filtra sobre título + contenido.
+- Enter: copia el prompt seleccionado y lo selecciona en el panel principal.
+- ⌘Enter: selecciona sin copiar.
 
 ---
 
@@ -162,15 +170,15 @@ El killer feature. Accesible desde **cualquier app del Mac**.
 Pantalla de preparación antes de copiar un prompt con variables.
 
 **Interacción inline**
-- El prompt se renderiza completo. Cada `{{variable}}` es un chip amber clickable.
+- El prompt se renderiza completo. Cada `{{variable}}` es un chip clickable.
 - Clic en chip → input editable inline, misma posición en el texto.
 - Enter / Tab → confirma y salta a la siguiente variable vacía.
 - Escape → cancela.
 - Variables repetidas se sincronizan — editar una actualiza todas.
 
 **Footer**
-- Botón «Copiar»: copia con variables resueltas al portapapeles.
-- Botón «Cancelar».
+- Botón Copy: copia con variables resueltas al portapapeles.
+- Botón Cancel.
 
 ---
 
@@ -180,16 +188,19 @@ Pantalla de preparación antes de copiar un prompt con variables.
 - Primer nivel, sin anidamiento.
 - Nombre + color (dot en sidebar).
 - Crear / eliminar desde sidebar (inline input).
-- Eliminar colección → prompts pasan a «Sin colección».
+- Eliminar colección → prompts pasan a sin colección.
 - Nuevas colecciones se añaden al principio de la lista.
 
 **Tags**
 - Libres por prompt, múltiples.
-- Añadidos manualmente desde el detalle del prompt.
+- Añadidos / eliminados desde el detalle del prompt.
+- Renombrar / eliminar tag en masa (afecta a todos los prompts que lo tienen).
+- Filtro por tags en el panel de lista (multi-select dropdown).
 
 **Vistas rápidas en sidebar**
-- Todos los prompts
-- Pineados
+- Prompts (todos)
+- Pinned
+- Library
 
 ---
 
@@ -203,7 +214,7 @@ Cerrado con Escape, ⌘,, botón ✕ o clic fuera.
 |---|---|
 | Appearance | Toggle Light / Dark / System. Persiste en `settings.json`. El tema se aplica en tiempo real via evento `settings:theme-changed`. |
 | Shortcuts | Shortcut global configurable (click para grabar). Lista de shortcuts in-app reales: ⌘N, ⌘F, ⌘,. |
-| Data | Ruta del fichero, nº de prompts, nº de colecciones. Botón "Show in Finder". |
+| Data | Ruta del fichero de datos, nº de prompts, nº de colecciones. Botón "Show in Finder". |
 | About | Logo, versión, descripción, links externos. |
 
 ---
@@ -216,15 +227,37 @@ Cerrado con Escape, ⌘,, botón ✕ o clic fuera.
 
 ---
 
+### 5.7 Library ✅
+
+Panel de templates curados accesible desde la vista "Library" del sidebar.
+
+**Comportamiento**
+- Reemplaza el panel central + detalle cuando está activo (el sidebar sigue visible).
+- Descarga templates desde `https://raw.githubusercontent.com/Rosqueta/stash-templates/main/dist/templates.json` al abrir.
+- Si no hay conexión, usa la última versión cacheada (vía `get_templates_cache` / `set_templates_cache` Tauri commands).
+- Templates organizados en 6 categorías: General, Writing, Design, Development, Analysis, Meetings.
+- Toggle ES / EN para ver títulos, contenidos y variables en español o inglés.
+- Filtro por categoría (pills horizontales).
+- Clic en card → `TemplateModal` para previsualizar e importar.
+- Botón `+` en hover → importa directamente sin abrir el modal.
+- Importar crea un `Prompt` nuevo con el contenido en el idioma seleccionado y lo asigna a la colección elegida.
+
+**Fuente de templates:** repo `stash-templates` (github.com/Rosqueta/stash-templates).
+Cada template tiene `content_es` / `content_en` y `variables_es` / `variables_en`.
+
+---
+
 ## 6. Diseño y UX
 
 ### Layout de 3 paneles
 
 | Panel | Ancho | Contenido |
 |---|---|---|
-| Sidebar izquierdo | 220px | Colecciones, vistas rápidas, búsqueda, nuevo prompt, ajustes |
+| Sidebar izquierdo | 220px | Colecciones, vistas rápidas (Prompts, Pinned, Library), búsqueda, nuevo prompt, ajustes |
 | Lista central | 284px | Prompts filtrados |
 | Detalle derecho | flex: 1 | Contenido, notas, acciones |
+
+Cuando la vista activa es Library, los paneles central y derecho son reemplazados por `LibraryPanel`.
 
 ### macOS nativo
 
@@ -249,9 +282,10 @@ CSS custom properties en `App.css`, registradas con Tailwind `@theme`. Nunca har
 
 ### Feedback de acciones (sonner toasts)
 
-- Prompt copiado → «Copiado ✓» (success, 2s)
-- Error al copiar → «Error al copiar» (error, 3s)
-- Prompt eliminado → «Prompt eliminado» + undo (3s)
+- Prompt copiado → toast success
+- Error al copiar → toast error
+- Prompt eliminado → toast success con acción undo
+- Collection deleted → toast success
 
 ---
 
@@ -291,22 +325,24 @@ Página de marketing estática en `web/index.html`.
 - Shortcut global ⌘⇧P con paleta de búsqueda (GlobalPalette)
 - Warm Up modal con chips editables inline
 - Theming light/dark/system con persistencia
-- Tags
+- Tags con filtro multi-select en el panel de lista
 
-### Fase 3 — Profundidad ✅ (parcial)
+### Fase 3 — Profundidad ✅
 - Settings modal in-app (Appearance, Shortcuts, Data, About)
 - Landing page (`web/index.html`)
+- Library de templates curados con soporte bilingüe ES/EN
 
-### Pendiente (Fase 3+)
+### Pendiente
 - Onboarding con prompts de ejemplo
 - Exportar / importar `stash.json`
-- Vista "Usados hoy"
+- Vista "Used today"
 
 ---
 
 ## 10. Referencias
 
 - `./scratch/` — repo local de referencia de arquitectura. No modificar.
+- `stash-templates` — github.com/Rosqueta/stash-templates (fuente de templates de la Library)
 - Tauri v2: https://v2.tauri.app
 - plugin-global-shortcut: registro del shortcut global
 - plugin-clipboard-manager: copiar desde Rust

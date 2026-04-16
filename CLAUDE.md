@@ -88,13 +88,15 @@ interface Collection {
 interface AppSettings {
   theme: "light" | "dark" | "system";   // default: "system"
   globalShortcut: string;               // default: "Super+Shift+KeyP"
+  dataDir: string | null;               // default: null → resolves to ~/Documents/Stash
 }
 ```
 
 ### Storage
-All data stored in a single `stash.json` file at `{APP_DATA}/stash.json`.
-Structure: `{ prompts: Prompt[], collections: Collection[], version: number }`.
-Settings stored separately at `{APP_DATA}/settings.json`.
+`stash.json` is stored at `~/Documents/Stash/stash.json` by default.
+The user can change this path from Settings > Data; the custom path is persisted as `dataDir`
+in `settings.json`. Structure: `{ prompts: Prompt[], collections: Collection[], version: number }`.
+Settings stored separately at `{APP_DATA}/settings.json` (always fixed location).
 Never store to localStorage or sessionStorage.
 
 ### Context pattern (dual context, same as Scratch)
@@ -109,7 +111,7 @@ function usePromptsActions() { return useContext(PromptsActionsContext) }
 
 ## Layout
 
-3-panel layout:
+Default 3-panel layout:
 
 | Panel | Width | Component |
 |---|---|---|
@@ -117,7 +119,11 @@ function usePromptsActions() { return useContext(PromptsActionsContext) }
 | Prompt list | 284px | `prompt-list/PromptList.tsx` |
 | Prompt detail | flex: 1 | `prompt-detail/PromptDetail.tsx` |
 
-Full-width titlebar strip (`h-[52px]`) sits above the 3 panels in `App.tsx` — never add per-panel drag regions, only the top-level strip uses `data-tauri-drag-region`.
+When `activeCollectionId === "library"`, the center + detail panels are replaced by
+`LibraryPanel` (full-width). The sidebar remains visible.
+
+Full-width titlebar strip (`h-[52px]`) sits above the panels in `App.tsx` — never add
+per-panel drag regions, only the top-level strip uses `data-tauri-drag-region`.
 
 ## Windows
 
@@ -125,7 +131,7 @@ Only **two** native windows are defined in `tauri.conf.json`:
 
 | Label | Purpose |
 |---|---|
-| `main` | Main 3-panel app (1080×720, visible: false until data loads) |
+| `main` | Main app (1080×720, visible: false until data loads) |
 | `palette` | Global search palette (640×420, transparent, always-on-top) |
 
 **Settings is NOT a separate window** — it's an in-app modal overlay rendered inside `AppShell`
@@ -136,44 +142,51 @@ via React state (`settingsOpen`). Backdrop: `rgba(0,0,0,0.35)` + `backdrop-filte
 ```
 src/
   assets/
-    empty-state-prompts.png     # Illustration for empty prompt list
-    about.png                   # Squirrel illustration used in Settings > About
-    icono.png                   # Source app icon (1024x1024, rounded corners)
+    empty-state-prompts.png       # Illustration for empty prompt list (light)
+    dark-empty-state-prompts.png  # Illustration for empty prompt list (dark)
+    about.png                     # Squirrel illustration used in Settings > About
+    library.png                   # Hero illustration for the Library panel
+    icono.png                     # Source app icon (1024x1024, rounded corners)
   components/
     search/
-      SearchSpotlight.tsx       # ⌘F search overlay
+      SearchSpotlight.tsx         # ⌘F search overlay
     prompt-list/
-      PromptList.tsx            # Center panel — filtered prompt list + empty state
-      PromptCard.tsx            # Single prompt row (title + optional pin)
+      PromptList.tsx              # Center panel — filtered prompt list + empty state
+      PromptCard.tsx              # Single prompt row (title + optional pin)
     prompt-detail/
-      PromptDetail.tsx          # Right panel — title, content, notes, actions
-      VariableEditor.tsx        # contenteditable editor with inline {{variable}} chips
+      PromptDetail.tsx            # Right panel — title, content, notes, actions
+      VariableEditor.tsx          # contenteditable editor with inline {{variable}} chips
     collections/
-      Sidebar.tsx               # Left panel — collections, quick views, search, settings
+      Sidebar.tsx                 # Left panel — collections, quick views, search, settings
     global-palette/
-      GlobalPalette.tsx         # Floating palette opened via ⌘⇧P from any app
+      GlobalPalette.tsx           # Floating palette opened via ⌘⇧P from any app
     warm-up/
-      WarmUp.tsx                # Variable-filling modal shown before copying a prompt
+      WarmUp.tsx                  # Variable-filling modal shown before copying a prompt
     settings/
-      Settings.tsx              # In-app settings modal (4 sections: Appearance, Shortcuts, Data, About)
+      Settings.tsx                # In-app settings modal (4 sections: Appearance, Shortcuts, Data, About)
+    library/
+      LibraryPanel.tsx            # Full-width panel replacing center+detail when Library is active
+      TemplateModal.tsx           # Preview/import modal for a single template
     ui/
-      index.tsx                 # IconButton, Tooltip (Radix-based)
+      index.tsx                   # IconButton, Tooltip (Radix-based)
   context/
-    PromptsContext.tsx          # Dual context (data + actions)
-    ThemeContext.tsx            # Light/dark/system theme, persisted to settings.json
+    PromptsContext.tsx            # Dual context (data + actions)
+    ThemeContext.tsx              # Light/dark/system theme, persisted to settings.json
   services/
-    storage.ts                  # invoke() wrappers for all backend calls
+    storage.ts                    # invoke() wrappers for all backend calls
+    templateService.ts            # fetchTemplates(), buildPromptFromTemplate()
   types/
-    prompt.ts                   # All TypeScript interfaces
+    prompt.ts                     # Prompt, Collection, StashData interfaces
+    template.ts                   # Template, TemplatesData, TemplateCategory, Lang interfaces
   lib/
-    utils.ts                    # cn() helper (clsx + tailwind-merge)
+    utils.ts                      # cn() helper (clsx + tailwind-merge)
 web/
-  index.html                    # Marketing landing page (static, no build step)
+  index.html                      # Marketing landing page (static, no build step)
 ```
 
 ## Settings Modal
 
-Opened via `⌘,` or the "Ajustes" button at the bottom of the sidebar.
+Opened via `⌘,` or the "Settings" button at the bottom of the sidebar.
 Rendered as an overlay inside `AppShell` — not a native window.
 Closed via `Escape`, `⌘,` again, the ✕ button, or clicking outside.
 
@@ -193,8 +206,8 @@ Closed via `Escape`, `⌘,` again, the ✕ button, or clicking outside.
 
 ### Interactions
 - **Single click on chip** → enters inline edit mode. Cursor placed at click position via `document.caretRangeFromPoint`. Enter/Escape/blur confirm or cancel.
-- **Double click on chip** → confirms any pending edit, then shows "Quitar variable" popover.
-- **Select plain text** → shows "Convertir en variable" popover above selection.
+- **Double click on chip** → confirms any pending edit, then shows "Remove variable" popover.
+- **Select plain text** → shows "Convert to variable" popover above selection.
 - **Select text containing a chip** → no popover (avoid ambiguity).
 
 ### Key functions
@@ -233,24 +246,56 @@ htmlToValue(el)    // reads DOM back to "hello {{name}}"
 `src/components/warm-up/WarmUp.tsx` — variable-filling step shown from the global palette
 when a selected prompt contains `{{variable}}` placeholders.
 
+## Library Panel
+
+`src/components/library/LibraryPanel.tsx` — accessed via "Library" in the sidebar.
+Replaces the center + detail panels entirely when active.
+
+- Fetches templates from `https://raw.githubusercontent.com/Rosqueta/stash-templates/main/dist/templates.json`
+  on every open; falls back to the last successful response cached via `get_templates_cache` / `set_templates_cache` Tauri commands.
+- Displays templates in a 3-column grid, filterable by category.
+- Language toggle (ES / EN) in the top-right of the filter bar — switches titles, content, and variable names.
+- Clicking a card opens `TemplateModal` for preview and import.
+- The `+` button on hover imports directly without opening the modal.
+- Importing creates a new `Prompt` via `buildPromptFromTemplate(template, collectionId, lang)`.
+
+### Template types (`src/types/template.ts`)
+
+```typescript
+type Lang = "es" | "en";
+
+interface Template {
+  id: string;
+  title_es: string;
+  title_en: string;
+  category: string;
+  tags?: string[];
+  variables_es?: string[];
+  variables_en?: string[];
+  content_es: string;
+  content_en: string;
+}
+```
+
 ## Empty States
 
 ### Prompt list (center panel)
 - Shown when filtered list is empty (all views including collections).
-- Illustration: `src/assets/empty-state-prompts.png` at `w-28 h-28`.
-- Text: "Tu stash está vacío" + "Crea tu primer prompt y accede a él desde cualquier app."
-- Button: "Nuevo prompt ⌘N" — creates prompt assigned to active collection.
+- Illustration: `src/assets/empty-state-prompts.png` (light) / `dark-empty-state-prompts.png` (dark) at `w-28 h-28`.
+- Text: "Your stash is empty" + "Create your first prompt and access it from any app."
+- Button: "New prompt ⌘N" — creates prompt assigned to active collection.
 
 ### Prompt detail (right panel)
 - Shown when no prompt is selected.
 - Icon: `<Notepad size={48} weight="thin" />` in placeholder color.
-- Text: "Selecciona un prompt / o crea uno nuevo para empezar" in placeholder color.
+- Text: "Select a prompt / or create a new one to get started" in placeholder color.
 - Placeholder color: `color-mix(in srgb, var(--color-text-muted) 50%, transparent)`.
 
 ## Icon conventions
 
-- **Prompt concept** (sidebar item, search results, detail empty state): `Notepad` from @phosphor-icons/react
-- **Notas section divider** in PromptDetail: `Note`
+- **Prompt concept** (sidebar item, search results, detail empty state): `Notepad`
+- **Library view**: `Books`
+- **Notes section divider** in PromptDetail: `Note`
 - **Collections**: `Folder` / `FolderOpen` colored with `collection.color`
 - **Pin/Favorite**: `PushPin`
 - **Settings**: `Gear`
@@ -285,7 +330,7 @@ Always use CSS variables for colors, never hardcode hex in components.
 ## Typography & Buttons
 
 - All interactive items (buttons, sidebar items, prompt cards): `font-medium`.
-- Labels/section headers (e.g. "Colecciones", "NOTAS"): `font-semibold uppercase tracking-wider`.
+- Labels/section headers (e.g. "Collections", "NOTES"): `font-semibold uppercase tracking-wider`.
 - Prompt title in detail: `text-2xl font-bold`.
 - Placeholders: `placeholder:text-[var(--color-text-muted)]/50`.
 
@@ -312,9 +357,10 @@ to force Cargo to relink and embed the new icon.
 
 ## Sidebar
 
-- "Nuevo prompt" button: amber (`--color-stash`), creates prompt assigned to active collection (not Pinned view).
-- "Buscar" button: opens SearchSpotlight overlay (`⌘F`).
-- "Ajustes" button: opens Settings modal (`⌘,`). No border separator above it.
+- **"New prompt"** button: amber (`--color-stash`), creates prompt assigned to active collection (not Pinned or Library views).
+- **"Search"** button: opens SearchSpotlight overlay (`⌘F`).
+- **"Settings"** button: opens Settings modal (`⌘,`). No border separator above it.
+- Quick views: **Prompts** (all), **Pinned**, **Library** — `activeCollectionId` is `null`, `"pinned"`, or `"library"` respectively.
 - Collections: inline creation (folder icon + transparent input at top of list), saved on Enter, dismissed on blur/Escape.
 - New collections prepend to the list (not append).
 
@@ -324,7 +370,6 @@ to force Cargo to relink and embed the new icon.
 - Enter: copies prompt + selects it in main panel.
 - ⌘Enter: selects prompt without copying.
 - Escape: closes.
-- Footer hints: `↵ Copiar`, `⌘↵ Abrir`, `Esc Cerrar`.
 
 ## Keyboard Shortcuts
 
