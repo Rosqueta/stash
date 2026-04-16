@@ -7,10 +7,11 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { IconButton } from "../ui";
 import { buildPromptFromTemplate } from "../../services/templateService";
-import type { Template } from "../../types/template";
+import type { Template, Lang } from "../../types/template";
 
 interface Props {
   template: Template;
+  lang: Lang;
   onClose: () => void;
 }
 
@@ -28,11 +29,14 @@ function renderContent(content: string) {
   });
 }
 
-export function TemplateModal({ template, onClose }: Props) {
+export function TemplateModal({ template, lang, onClose }: Props) {
   const { collections } = usePromptsData();
   const { savePrompt } = usePromptsActions();
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+
+  const title = lang === "es" ? template.title_es : template.title_en;
+  const content = lang === "es" ? template.content_es : template.content_en;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -45,12 +49,12 @@ export function TemplateModal({ template, onClose }: Props) {
   async function handleImport() {
     setImporting(true);
     try {
-      const prompt = buildPromptFromTemplate(template, selectedCollectionId);
+      const prompt = buildPromptFromTemplate(template, selectedCollectionId, lang);
       await savePrompt(prompt);
-      toastSuccess("Added to your prompts");
+      toastSuccess(lang === "es" ? "Prompt añadido" : "Added to your prompts");
       onClose();
     } catch {
-      toast.error("Failed to import template");
+      toast.error(lang === "es" ? "Error al importar el template" : "Failed to import template");
       setImporting(false);
     }
   }
@@ -72,7 +76,7 @@ export function TemplateModal({ template, onClose }: Props) {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 shrink-0">
           <h2 className="text-lg font-bold text-[var(--color-text)] leading-snug">
-            {template.title}
+            {title}
           </h2>
           <IconButton size="sm" onClick={onClose} className="mt-0.5 shrink-0">
             <X size={14} />
@@ -82,14 +86,16 @@ export function TemplateModal({ template, onClose }: Props) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-4">
           <div className="text-sm text-[var(--color-text)] leading-relaxed whitespace-pre-wrap selectable">
-            {renderContent(template.content)}
+            {renderContent(content)}
           </div>
         </div>
 
         {/* Footer — collection selector + import */}
         <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--color-text-muted)] shrink-0">Add to:</span>
+            <span className="text-xs text-[var(--color-text-muted)] shrink-0">
+              {lang === "es" ? "Añadir a:" : "Add to:"}
+            </span>
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <button className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors group focus:outline-none">
@@ -98,7 +104,7 @@ export function TemplateModal({ template, onClose }: Props) {
                     return (
                       <>
                         <Folder size={13} weight="regular" style={col ? { color: col.color } : undefined} />
-                        <span>{col ? col.name : "No collection"}</span>
+                        <span>{col ? col.name : (lang === "es" ? "Sin colección" : "No collection")}</span>
                         <CaretDown size={10} className="opacity-0 group-hover:opacity-60 transition-opacity" />
                       </>
                     );
@@ -117,7 +123,7 @@ export function TemplateModal({ template, onClose }: Props) {
                     className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-muted)] cursor-pointer outline-none hover:bg-[var(--color-bg-muted)] transition-colors"
                   >
                     <Folder size={14} weight="regular" />
-                    No collection
+                    {lang === "es" ? "Sin colección" : "No collection"}
                   </DropdownMenu.Item>
                   {collections.length > 0 && (
                     <DropdownMenu.Separator className="my-1 h-px bg-[var(--color-border)]" />
@@ -140,7 +146,9 @@ export function TemplateModal({ template, onClose }: Props) {
               disabled={importing}
               className="ml-auto flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-[var(--color-stash)] text-white hover:opacity-90 active:opacity-75 active:scale-[0.98] transition-all duration-100 disabled:opacity-50"
             >
-              {importing ? "Importing…" : "Add to my prompts"}
+              {importing
+                ? (lang === "es" ? "Importando…" : "Importing…")
+                : (lang === "es" ? "Añadir a mis prompts" : "Add to my prompts")}
             </button>
           </div>
         </div>
@@ -149,4 +157,3 @@ export function TemplateModal({ template, onClose }: Props) {
     document.body
   );
 }
-

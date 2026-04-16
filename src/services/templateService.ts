@@ -21,13 +21,14 @@ export async function fetchTemplates(): Promise<TemplatesData> {
 
 export function buildPromptFromTemplate(
   template: Template,
-  collectionId: string | null
+  collectionId: string | null,
+  lang: "es" | "en" = "en"
 ): Prompt {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    title: template.title,
-    content: template.content,
+    title: lang === "es" ? template.title_es : template.title_en,
+    content: lang === "es" ? template.content_es : template.content_en,
     collectionId,
     tags: [],
     modelTarget: "any",
