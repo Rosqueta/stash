@@ -43,7 +43,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost https://ipc.localhost; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self' ipc: http://ipc.localhost https://ipc.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' https://raw.githubusercontent.com"
     },
     "macOSPrivateApi": true
   },
