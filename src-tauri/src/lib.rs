@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -471,6 +471,41 @@ async fn change_data_folder(app: AppHandle) -> Result<Option<String>, String> {
     }
 }
 
+// ── Tag commands ──────────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn rename_tag(app: AppHandle, old_name: String, new_name: String) -> Result<Vec<Prompt>, String> {
+    let trimmed = new_name.trim().to_string();
+    if trimmed.is_empty() || trimmed == old_name {
+        return Err("Invalid tag name".to_string());
+    }
+    let mut data = read_data(&app).await?;
+    for prompt in data.prompts.iter_mut() {
+        if prompt.tags.contains(&old_name) {
+            prompt.tags = prompt.tags.iter()
+                .map(|t| if t == &old_name { trimmed.clone() } else { t.clone() })
+                .collect::<std::collections::LinkedList<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+            // Deduplicate
+            let mut seen = std::collections::HashSet::new();
+            prompt.tags.retain(|t| seen.insert(t.clone()));
+        }
+    }
+    write_data(&app, &data).await?;
+    Ok(data.prompts)
+}
+
+#[tauri::command]
+async fn delete_tag(app: AppHandle, name: String) -> Result<Vec<Prompt>, String> {
+    let mut data = read_data(&app).await?;
+    for prompt in data.prompts.iter_mut() {
+        prompt.tags.retain(|t| t != &name);
+    }
+    write_data(&app, &data).await?;
+    Ok(data.prompts)
+}
+
 // ── Template cache commands ───────────────────────────────────────────────────
 
 #[tauri::command]
@@ -539,6 +574,8 @@ pub fn run() {
             show_in_finder,
             open_url,
             change_data_folder,
+            rename_tag,
+            delete_tag,
             get_templates_cache,
             set_templates_cache,
         ])

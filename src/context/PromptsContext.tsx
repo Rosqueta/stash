@@ -38,9 +38,6 @@ interface PromptsActions {
   refresh: () => Promise<void>;
 }
 
-function dedupeTags(tags: string[]) {
-  return tags.filter((tag, index) => tags.indexOf(tag) === index);
-}
 
 const PromptsDataContext = createContext<PromptsData | null>(null);
 const PromptsActionsContext = createContext<PromptsActions | null>(null);
@@ -142,29 +139,15 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   const renameTag = useCallback(async (oldName: string, newName: string) => {
     const trimmed = newName.trim();
     if (!trimmed || trimmed === oldName) return;
-    const affected = prompts.filter((p) => p.tags.includes(oldName));
-    const updated = affected.map((p) => ({
-      ...p,
-      tags: dedupeTags(p.tags.map((t) => (t === oldName ? trimmed : t))),
-    }));
-    await Promise.all(updated.map((p) => storage.savePrompt(p)));
-    setPrompts((prev) =>
-      prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
-    );
-  }, [prompts]);
+    const updatedPrompts = await storage.renameTag(oldName, trimmed);
+    setPrompts(updatedPrompts);
+  }, []);
 
   const deleteTag = useCallback(async (name: string) => {
-    const affected = prompts.filter((p) => p.tags.includes(name));
-    const updated = affected.map((p) => ({
-      ...p,
-      tags: p.tags.filter((t) => t !== name),
-    }));
-    await Promise.all(updated.map((p) => storage.savePrompt(p)));
-    setPrompts((prev) =>
-      prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
-    );
+    const updatedPrompts = await storage.deleteTag(name);
+    setPrompts(updatedPrompts);
     toast.success(`Tag "${name}" deleted`);
-  }, [prompts]);
+  }, []);
 
   const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {
     try {

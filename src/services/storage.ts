@@ -25,6 +25,14 @@ export async function deleteCollection(id: string): Promise<void> {
   return invoke("delete_collection", { id });
 }
 
+export async function renameTag(oldName: string, newName: string): Promise<Prompt[]> {
+  return invoke<Prompt[]>("rename_tag", { oldName, newName });
+}
+
+export async function deleteTag(name: string): Promise<Prompt[]> {
+  return invoke<Prompt[]>("delete_tag", { name });
+}
+
 export async function copyToClipboard(text: string): Promise<void> {
   return invoke("copy_to_clipboard", { text });
 }
