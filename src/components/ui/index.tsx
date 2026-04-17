@@ -33,7 +33,7 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
           sideOffset={6}
-          className="z-50 rounded-md bg-[#44403c] px-2 py-1 text-[12.5px] text-[var(--color-bg)] shadow-md animate-in fade-in-0 zoom-in-95"
+          className="z-50 rounded-md bg-[var(--color-text)] px-2 py-1 text-[12.5px] text-[var(--color-bg)] shadow-md animate-in fade-in-0 zoom-in-95"
         >
           {label}
         </TooltipPrimitive.Content>

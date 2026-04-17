@@ -68,7 +68,7 @@ export function LibraryPanel() {
     <div className="flex-1 flex flex-col overflow-hidden bg-[var(--color-bg)]">
       {/* Hero */}
       <div className="shrink-0 px-6 pt-4">
-        <div className="flex items-center gap-5 px-4 py-4 rounded-xl" style={{ background: "linear-gradient(135deg, #FFFAF5 0%, #FFF3E8 60%, #FEE9D144 100%)", border: "1px solid rgba(253, 186, 116, 0.15)" }}>
+        <div className="flex items-center gap-5 px-4 py-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)]" style={{ backgroundImage: "linear-gradient(135deg, color-mix(in srgb, var(--color-stash) 6%, transparent) 0%, transparent 100%)" }}>
           <img src={libraryImg} alt="" className="h-24 w-24 object-contain shrink-0 select-none self-center" draggable={false} />
           <div className="flex flex-col justify-center gap-1">
             <h1 className="text-xl font-bold text-[var(--color-text)] leading-snug">
