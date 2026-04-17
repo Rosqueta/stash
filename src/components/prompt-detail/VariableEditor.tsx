@@ -265,9 +265,9 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
           }}
           onMouseDown={(e) => e.preventDefault()}
           onClick={popover.type === "create" ? handleConvertToVar : handleRemoveVar}
-          className="bg-[#2c2724] text-white text-xs rounded-md px-2.5 py-1.5 shadow-lg cursor-pointer hover:bg-[#3d3735] whitespace-nowrap transition-colors select-none"
+          className="bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] text-xs font-medium rounded-md px-3 py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.07)] cursor-pointer hover:bg-[var(--color-bg-secondary)] whitespace-nowrap transition-colors select-none"
         >
-          {popover.type === "create" ? "Convertir en variable" : "Quitar variable"}
+          {popover.type === "create" ? "Convert to variable" : "Remove variable"}
         </div>
       )}
     </div>
