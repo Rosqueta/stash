@@ -13,11 +13,14 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { extractVariables } from "../../services/variables";
 import { IconButton, Tooltip } from "../ui";
+import { HintCard } from "../onboarding/HintCard";
+import { useTheme } from "../../context/ThemeContext";
 import type { Prompt } from "../../types/prompt";
 
 export function PromptDetail() {
   const { prompts, selectedId, collections } = usePromptsData();
   const { savePrompt, deletePrompt, copyPrompt, renameTag, deleteTag } = usePromptsActions();
+  const { hasSeenShortcutHint, hasSeenVariableHint, markHintSeen } = useTheme();
 
   const prompt = prompts.find((p) => p.id === selectedId) ?? null;
 
@@ -182,6 +185,15 @@ export function PromptDetail() {
     <div className="relative flex flex-col flex-1 h-full overflow-hidden">
       <div key={selectedId} className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4 animate-content-in">
 
+        {/* Onboarding — Momento 1: shortcut ⌘⇧P (shown after first prompt is saved) */}
+        {prompts.length === 1 && !hasSeenShortcutHint && (
+          <HintCard
+            title="It's ready. Use it from anywhere."
+            description="Press ⌘⇧P from any app to instantly pull up your prompts. No switching required. Works everywhere except full-screen apps. You can change this shortcut in Settings > Shortcuts."
+            onDismiss={() => markHintSeen("shortcut")}
+          />
+        )}
+
         {/* Collection + actions row */}
         <div className="flex items-center justify-between">
           {/* Collection selector */}
@@ -299,6 +311,21 @@ export function PromptDetail() {
           placeholder="Write your prompt here..."
         />
 
+
+        {/* Onboarding — Momento 2: variables (shown first time a prompt is selected) */}
+        {!hasSeenVariableHint && (
+          <HintCard
+            title="Make your prompts dynamic."
+            description={
+              <>
+                Select any text to turn it into a{" "}
+                <span data-var="">variable</span>
+                {". You'll fill it in right before copying. Double-click any variable to remove it."}
+              </>
+            }
+            onDismiss={() => markHintSeen("variable")}
+          />
+        )}
 
         {/* Notes divider */}
         <div className="flex items-center gap-3 mt-2">

@@ -71,6 +71,10 @@ pub struct AppSettings {
     pub global_shortcut: String,
     #[serde(default)]
     pub data_dir: Option<String>,
+    #[serde(default)]
+    pub has_seen_shortcut_hint: bool,
+    #[serde(default)]
+    pub has_seen_variable_hint: bool,
 }
 
 fn default_theme() -> String { "system".to_string() }
@@ -78,7 +82,13 @@ fn default_shortcut() -> String { "Super+Shift+KeyP".to_string() }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { theme: default_theme(), global_shortcut: default_shortcut(), data_dir: None }
+        Self {
+            theme: default_theme(),
+            global_shortcut: default_shortcut(),
+            data_dir: None,
+            has_seen_shortcut_hint: false,
+            has_seen_variable_hint: false,
+        }
     }
 }
 
@@ -362,6 +372,17 @@ async fn update_global_shortcut(app: AppHandle, shortcut: String) -> Result<(), 
 }
 
 #[tauri::command]
+async fn mark_hint_seen(app: AppHandle, hint: String) -> Result<(), String> {
+    let mut settings = read_settings(&app).await;
+    match hint.as_str() {
+        "shortcut" => settings.has_seen_shortcut_hint = true,
+        "variable" => settings.has_seen_variable_hint = true,
+        _ => {}
+    }
+    write_settings(&app, &settings).await
+}
+
+#[tauri::command]
 async fn get_app_version(app: AppHandle) -> Result<String, String> {
     Ok(app.package_info().version.to_string())
 }
@@ -578,6 +599,7 @@ pub fn run() {
             delete_tag,
             get_templates_cache,
             set_templates_cache,
+            mark_hint_seen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Stash");

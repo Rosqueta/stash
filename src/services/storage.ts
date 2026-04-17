@@ -40,3 +40,7 @@ export async function copyToClipboard(text: string): Promise<void> {
 export async function showWindow(): Promise<void> {
   return invoke("show_window");
 }
+
+export async function markHintSeen(hint: "shortcut" | "variable"): Promise<void> {
+  return invoke("mark_hint_seen", { hint });
+}

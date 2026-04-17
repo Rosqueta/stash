@@ -136,7 +136,7 @@ describe("PromptsContext", () => {
       mockCollections = [];
       render(<TestApp />);
       await waitForReady();
-      expect((toastMock as { error: ReturnType<typeof vi.fn> }).error).toHaveBeenCalledWith("Failed to load data");
+      expect((toastMock as unknown as { error: ReturnType<typeof vi.fn> }).error).toHaveBeenCalledWith("Failed to load data");
     });
   });
 

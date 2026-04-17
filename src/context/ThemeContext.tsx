@@ -8,6 +8,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import * as storage from "../services/storage";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -15,6 +16,9 @@ interface ThemeContextValue {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
   resolved: "light" | "dark";
+  hasSeenShortcutHint: boolean;
+  hasSeenVariableHint: boolean;
+  markHintSeen: (hint: "shortcut" | "variable") => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -24,11 +28,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches
   );
+  const [hasSeenShortcutHint, setHasSeenShortcutHint] = useState(true);
+  const [hasSeenVariableHint, setHasSeenVariableHint] = useState(true);
 
-  // Load initial theme from settings.json
+  // Load initial theme and onboarding flags from settings.json
   useEffect(() => {
-    invoke<{ theme: string; globalShortcut: string }>("load_settings")
-      .then((s) => setModeState(s.theme as ThemeMode))
+    invoke<{ theme: string; globalShortcut: string; hasSeenShortcutHint?: boolean; hasSeenVariableHint?: boolean }>("load_settings")
+      .then((s) => {
+        setModeState(s.theme as ThemeMode);
+        setHasSeenShortcutHint(s.hasSeenShortcutHint ?? false);
+        setHasSeenVariableHint(s.hasSeenVariableHint ?? false);
+      })
       .catch(() => {});
   }, []);
 
@@ -59,8 +69,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setModeState(newMode);
   }, []);
 
+  const markHintSeen = useCallback((hint: "shortcut" | "variable") => {
+    void storage.markHintSeen(hint);
+    if (hint === "shortcut") setHasSeenShortcutHint(true);
+    if (hint === "variable") setHasSeenVariableHint(true);
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ mode, setMode, resolved }}>
+    <ThemeContext.Provider value={{ mode, setMode, resolved, hasSeenShortcutHint, hasSeenVariableHint, markHintSeen }}>
       {children}
     </ThemeContext.Provider>
   );

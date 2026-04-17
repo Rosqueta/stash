@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PromptDetail } from "./PromptDetail";
 import { PromptsProvider, usePromptsActions, usePromptsData } from "../../context/PromptsContext";
+import { ThemeProvider } from "../../context/ThemeContext";
 import { TooltipProvider } from "../ui";
 import type { Collection, Prompt } from "../../types/prompt";
 
@@ -23,6 +24,19 @@ function seedStorage(prompts: Prompt[], collections: Collection[] = []) {
   mockPrompts = prompts.map(clonePrompt);
   mockCollections = collections.map((collection) => ({ ...collection }));
 }
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (cmd: string) => {
+    if (cmd === "load_settings") {
+      return { theme: "system", globalShortcut: "Super+Shift+KeyP", hasSeenShortcutHint: true, hasSeenVariableHint: true };
+    }
+    return undefined;
+  }),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
 
 vi.mock("sonner", () => ({
   toast: {
@@ -73,6 +87,7 @@ vi.mock("../../services/storage", () => ({
   }),
   copyToClipboard: vi.fn(async () => undefined),
   showWindow: vi.fn(async () => undefined),
+  markHintSeen: vi.fn(async () => undefined),
 }));
 
 vi.mock("./VariableEditor", () => ({
@@ -121,12 +136,14 @@ function PromptNavigator() {
 
 function TestApp() {
   return (
-    <TooltipProvider>
-      <PromptsProvider>
-        <PromptNavigator />
-        <PromptDetail />
-      </PromptsProvider>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <PromptsProvider>
+          <PromptNavigator />
+          <PromptDetail />
+        </PromptsProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
 
