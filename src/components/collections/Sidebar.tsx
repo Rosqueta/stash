@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gear, Books } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { useTheme } from "../../context/ThemeContext";
 import { IconButton, Tooltip } from "../ui";
 import type { Collection, Prompt } from "../../types/prompt";
 
@@ -32,12 +33,18 @@ const COLLECTION_COLORS = [
 ];
 
 export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => void; onSettingsOpen: () => void }) {
-  const { collections, activeCollectionId } = usePromptsData();
+  const { collections, activeCollectionId, prompts } = usePromptsData();
+  const { hasSeenShortcutHint, markHintSeen } = useTheme();
   const { setActiveCollection, saveCollection, deleteCollection, savePrompt, selectPrompt } =
     usePromptsActions();
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const newCollectionInputRef = useRef<HTMLInputElement>(null);
+  const [m1Triggered, setM1Triggered] = useState(false);
+
+  useEffect(() => {
+    if (!m1Triggered && prompts.length >= 1) setM1Triggered(true);
+  }, [prompts.length, m1Triggered]);
 
   useEffect(() => {
     if (isAdding) newCollectionInputRef.current?.focus();
@@ -186,6 +193,26 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
         ))}
         </div>
       </div>
+
+      {/* Onboarding — M1: shortcut hint banner (shown after first prompt) */}
+      {m1Triggered && !hasSeenShortcutHint && (
+        <div className="mx-3 mb-2 shrink-0 rounded-lg bg-[var(--color-bg-muted)] px-3 py-2.5 animate-slide-in-left">
+          <p className="text-xs font-medium text-[var(--color-text)]">
+            Press{" "}
+            <span className="font-mono font-semibold text-[var(--color-stash)]">⌘⇧P</span>
+            {" "}from any app to open your prompts
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-[var(--color-text-muted)]">
+            Works everywhere except full-screen apps. Customizable in Settings.
+          </p>
+          <button
+            onClick={() => markHintSeen("shortcut")}
+            className="mt-2 text-[11px] font-medium text-[var(--color-stash)] hover:opacity-70 transition-opacity"
+          >
+            Got it
+          </button>
+        </div>
+      )}
 
       {/* Settings */}
       <div className="px-2 pb-3 pt-1 shrink-0">

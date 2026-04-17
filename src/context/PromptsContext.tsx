@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { toast } from "sonner";
-import { ConfirmIcon } from "../components/ui";
+import { ConfirmIcon, toastSuccess } from "../components/ui";
 import type { Collection, Prompt } from "../types/prompt";
 import * as storage from "../services/storage";
 import { showWindow } from "../services/storage";
@@ -41,6 +41,29 @@ interface PromptsActions {
 
 const PromptsDataContext = createContext<PromptsData | null>(null);
 const PromptsActionsContext = createContext<PromptsActions | null>(null);
+
+function getNextId(
+  allPrompts: Prompt[],
+  deletedId: string,
+  activeCollectionId: string | null
+): string | null {
+  let list: Prompt[];
+  if (activeCollectionId === "pinned") {
+    list = allPrompts.filter((p) => p.isPinned);
+  } else if (activeCollectionId !== null && activeCollectionId !== "library") {
+    list = allPrompts.filter((p) => p.collectionId === activeCollectionId);
+  } else {
+    list = allPrompts;
+  }
+  const remaining = list.filter((p) => p.id !== deletedId);
+  if (remaining.length === 0) return null;
+  const sort = (arr: Prompt[]) =>
+    [...arr].sort((a, b) => (b.lastUsedAt ?? b.createdAt) - (a.lastUsedAt ?? a.createdAt));
+  const prevSorted = sort(list);
+  const nextSorted = sort(remaining);
+  const idx = prevSorted.findIndex((p) => p.id === deletedId);
+  return nextSorted[Math.min(idx, nextSorted.length - 1)]?.id ?? null;
+}
 
 export function PromptsProvider({ children }: { children: ReactNode }) {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
@@ -102,10 +125,13 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
 
   const deletePrompt = useCallback(async (id: string) => {
     await storage.deletePrompt(id);
+    const nextId = selectedId === id
+      ? getNextId(prompts, id, activeCollectionId)
+      : selectedId;
     setPrompts((prev) => prev.filter((p) => p.id !== id));
-    setSelectedId((prev) => (prev === id ? null : prev));
-    toast.success("Prompt deleted");
-  }, []);
+    setSelectedId(nextId);
+    toastSuccess("Prompt deleted");
+  }, [prompts, selectedId, activeCollectionId]);
 
   const saveCollection = useCallback(async (collection: Collection) => {
     try {
@@ -133,7 +159,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
       )
     );
     setActiveCollectionId((prev) => (prev === id ? null : prev));
-    toast.success("Collection deleted");
+    toastSuccess("Collection deleted");
   }, []);
 
   const renameTag = useCallback(async (oldName: string, newName: string) => {
@@ -146,7 +172,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   const deleteTag = useCallback(async (name: string) => {
     const updatedPrompts = await storage.deleteTag(name);
     setPrompts(updatedPrompts);
-    toast.success(`Tag "${name}" deleted`);
+    toastSuccess(`Tag "${name}" deleted`);
   }, []);
 
   const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {

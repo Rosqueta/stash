@@ -1,3 +1,4 @@
+import React from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PromptsProvider, usePromptsData, usePromptsActions } from "./PromptsContext";
@@ -11,6 +12,13 @@ const toastMock = vi.hoisted(() => {
   Object.assign(fn, { success: vi.fn(), error: vi.fn() });
   return fn;
 });
+
+// Mock ../components/ui so toastSuccess doesn't try to render React in tests
+vi.mock("../components/ui", () => ({
+  ConfirmIcon: () => null,
+  toastSuccess: vi.fn(),
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 vi.mock("sonner", () => ({ toast: toastMock }));
 
@@ -215,6 +223,62 @@ describe("PromptsContext", () => {
       await act(async () => { await capturedActions!.deletePrompt("p2"); });
 
       expect(screen.getByTestId("selected-id").textContent).toBe("p1");
+    });
+
+    it("auto-selecciona el siguiente prompt al borrar el seleccionado", async () => {
+      mockPrompts = [
+        makePrompt("p1", { createdAt: 2, lastUsedAt: null }),
+        makePrompt("p2", { createdAt: 1, lastUsedAt: null }),
+      ];
+      mockCollections = [];
+      render(<TestApp />);
+      await waitForReady();
+
+      act(() => capturedActions!.selectPrompt("p1"));
+      await vi.waitFor(() =>
+        expect(screen.getByTestId("selected-id").textContent).toBe("p1")
+      );
+
+      await act(async () => { await capturedActions!.deletePrompt("p1"); });
+
+      expect(screen.getByTestId("selected-id").textContent).toBe("p2");
+    });
+
+    it("auto-selecciona el prompt en la misma posición al borrar el seleccionado del medio", async () => {
+      mockPrompts = [
+        makePrompt("p1", { createdAt: 3, lastUsedAt: null }),
+        makePrompt("p2", { createdAt: 2, lastUsedAt: null }),
+        makePrompt("p3", { createdAt: 1, lastUsedAt: null }),
+      ];
+      mockCollections = [];
+      render(<TestApp />);
+      await waitForReady();
+
+      act(() => capturedActions!.selectPrompt("p2"));
+      await vi.waitFor(() =>
+        expect(screen.getByTestId("selected-id").textContent).toBe("p2")
+      );
+
+      await act(async () => { await capturedActions!.deletePrompt("p2"); });
+
+      // p2 estaba en índice 1 → seleccionar índice 1 de [p1, p3] = p3
+      expect(screen.getByTestId("selected-id").textContent).toBe("p3");
+    });
+
+    it("devuelve null si no quedan prompts tras borrar el único", async () => {
+      mockPrompts = [makePrompt("p1")];
+      mockCollections = [];
+      render(<TestApp />);
+      await waitForReady();
+
+      act(() => capturedActions!.selectPrompt("p1"));
+      await vi.waitFor(() =>
+        expect(screen.getByTestId("selected-id").textContent).toBe("p1")
+      );
+
+      await act(async () => { await capturedActions!.deletePrompt("p1"); });
+
+      expect(screen.getByTestId("selected-id").textContent).toBe("none");
     });
   });
 

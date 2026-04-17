@@ -38,12 +38,14 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(() => Promise.resolve(() => {})),
 }));
 
-vi.mock("sonner", () => ({
-  toast: {
+vi.mock("sonner", () => {
+  const toastFn = vi.fn();
+  Object.assign(toastFn, {
     success: (...args: unknown[]) => toastSuccessMock(...args),
     error: (...args: unknown[]) => toastErrorMock(...args),
-  },
-}));
+  });
+  return { toast: toastFn };
+});
 
 vi.mock("../../services/storage", () => ({
   listPrompts: vi.fn(async () => mockPrompts.map(clonePrompt)),
