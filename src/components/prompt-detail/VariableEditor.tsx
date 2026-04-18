@@ -15,6 +15,28 @@ interface Props {
   className?: string;
 }
 
+function getAdaptivePopoverPosition(
+  elementRect: DOMRect,
+  containerRect: DOMRect,
+  offset: number = 38
+): { x: number; y: number } {
+  const x = elementRect.left + elementRect.width / 2 - containerRect.left;
+
+  const elementTopRelative = elementRect.top - containerRect.top;
+  const elementBottomRelative = elementRect.bottom - containerRect.top;
+
+  const spaceAbove = elementTopRelative;
+
+  let y: number;
+  if (spaceAbove >= offset) {
+    y = elementTopRelative - offset;
+  } else {
+    y = elementBottomRelative + offset;
+  }
+
+  return { x, y };
+}
+
 function valueToHTML(str: string): string {
   const escaped = str
     .replace(/&/g, "&amp;")
@@ -146,8 +168,7 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
 
     const containerRect = containerRef.current!.getBoundingClientRect();
     const chipRect = target.getBoundingClientRect();
-    const x = chipRect.left + chipRect.width / 2 - containerRect.left;
-    const y = chipRect.top - containerRect.top;
+    const { x, y } = getAdaptivePopoverPosition(chipRect, containerRect);
 
     const fakeRange = document.createRange();
     fakeRange.selectNode(target);
@@ -192,8 +213,7 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
 
     const containerRect = containerRef.current!.getBoundingClientRect();
     const selRect = range.getBoundingClientRect();
-    const x = selRect.left + selRect.width / 2 - containerRect.left;
-    const y = selRect.top - containerRect.top;
+    const { x, y } = getAdaptivePopoverPosition(selRect, containerRect);
 
     setPopover({ type: "create", x, y, savedRange: range.cloneRange() });
   }, []);
@@ -259,7 +279,7 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
           style={{
             position: "absolute",
             left: popover.x,
-            top: popover.y - 38,
+            top: popover.y,
             transform: "translateX(-50%)",
             zIndex: 50,
           }}
