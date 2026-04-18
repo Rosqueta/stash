@@ -207,8 +207,17 @@ Closed via `Escape`, `⌘,` again, the ✕ button, or clicking outside.
 ### Interactions
 - **Single click on chip** → enters inline edit mode. Cursor placed at click position via `document.caretRangeFromPoint`. Enter/Escape/blur confirm or cancel.
 - **Double click on chip** → confirms any pending edit, then shows "Remove variable" popover.
-- **Select plain text** → shows "Convert to variable" popover above selection.
+- **Select plain text** → shows "Convert to variable" popover near selection (adaptive placement).
 - **Select text containing a chip** → no popover (avoid ambiguity).
+
+### Popover positioning
+The popover is rendered via `createPortal` to `document.body` with `position: fixed` and
+viewport coordinates. This avoids clipping from `overflow:hidden` / `overflow-y-auto`
+parents in `PromptDetail`. Placement is adaptive: appears above the selection when there
+is enough room in the viewport, below otherwise. X is clamped to stay within the viewport.
+Enters with a directional slide-in animation (6px, 120ms, `ease-out forwards`):
+- `animate-popover-in-top` — slides upward
+- `animate-popover-in-bottom` — slides downward
 
 ### Key functions
 ```typescript
