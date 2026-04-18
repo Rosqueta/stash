@@ -286,14 +286,11 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
             position: "fixed",
             left: popover.x,
             top: popover.y,
-            transform: popover.placement === "top"
-              ? "translate(-50%, -100%)"
-              : "translateX(-50%)",
             zIndex: 50,
           }}
           onMouseDown={(e) => e.preventDefault()}
           onClick={popover.type === "create" ? handleConvertToVar : handleRemoveVar}
-          className="bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] text-xs font-medium rounded-md px-3 py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.07)] cursor-pointer hover:bg-[var(--color-bg-secondary)] whitespace-nowrap transition-colors select-none"
+          className={`bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] text-xs font-medium rounded-md px-3 py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.07)] cursor-pointer hover:bg-[var(--color-bg-secondary)] whitespace-nowrap transition-colors select-none ${popover.placement === "top" ? "animate-popover-in-top" : "animate-popover-in-bottom"}`}
         >
           {popover.type === "create" ? "Convert to variable" : "Remove variable"}
         </div>,
