@@ -1,8 +1,12 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+
+type Placement = "top" | "bottom";
 
 interface PopoverState {
   x: number;
   y: number;
+  placement: Placement;
   type: "create" | "remove";
   savedRange: Range;
   chipEl?: HTMLElement;
@@ -15,26 +19,31 @@ interface Props {
   className?: string;
 }
 
-function getAdaptivePopoverPosition(
-  elementRect: DOMRect,
-  containerRect: DOMRect,
-  offset: number = 38
-): { x: number; y: number } {
-  const x = elementRect.left + elementRect.width / 2 - containerRect.left;
+const POPOVER_HEIGHT = 28;
+const POPOVER_HALF_WIDTH = 80;
+const GAP = 8;
+const VIEWPORT_PADDING = 8;
 
-  const elementTopRelative = elementRect.top - containerRect.top;
-  const elementBottomRelative = elementRect.bottom - containerRect.top;
-
-  const spaceAbove = elementTopRelative;
-
+function getAdaptivePopoverPosition(elementRect: DOMRect): {
+  x: number;
+  y: number;
+  placement: Placement;
+} {
   let y: number;
-  if (spaceAbove >= offset) {
-    y = elementTopRelative - offset;
+  let placement: Placement;
+  if (elementRect.top >= POPOVER_HEIGHT + GAP + VIEWPORT_PADDING) {
+    y = elementRect.top - GAP;
+    placement = "top";
   } else {
-    y = elementBottomRelative + offset;
+    y = elementRect.bottom + GAP;
+    placement = "bottom";
   }
 
-  return { x, y };
+  let x = elementRect.left + elementRect.width / 2;
+  x = Math.max(POPOVER_HALF_WIDTH + VIEWPORT_PADDING, x);
+  x = Math.min(window.innerWidth - POPOVER_HALF_WIDTH - VIEWPORT_PADDING, x);
+
+  return { x, y, placement };
 }
 
 function valueToHTML(str: string): string {
@@ -76,7 +85,6 @@ function htmlToValue(el: HTMLElement): string {
 
 export function VariableEditor({ value, onChange, placeholder, className }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const editingChipRef = useRef<{ el: HTMLElement; originalName: string } | null>(null);
   const [popover, setPopover] = useState<PopoverState | null>(null);
@@ -166,13 +174,12 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
       confirmChipEdit(editingChipRef.current.el, editingChipRef.current.originalName);
     }
 
-    const containerRect = containerRef.current!.getBoundingClientRect();
     const chipRect = target.getBoundingClientRect();
-    const { x, y } = getAdaptivePopoverPosition(chipRect, containerRect);
+    const { x, y, placement } = getAdaptivePopoverPosition(chipRect);
 
     const fakeRange = document.createRange();
     fakeRange.selectNode(target);
-    setPopover({ type: "remove", x, y, savedRange: fakeRange, chipEl: target });
+    setPopover({ type: "remove", x, y, placement, savedRange: fakeRange, chipEl: target });
   }, [cancelChipEdit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -211,11 +218,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
     const fragment = range.cloneContents();
     if (fragment.querySelector("[data-var]")) { setPopover(null); return; }
 
-    const containerRect = containerRef.current!.getBoundingClientRect();
     const selRect = range.getBoundingClientRect();
-    const { x, y } = getAdaptivePopoverPosition(selRect, containerRect);
+    const { x, y, placement } = getAdaptivePopoverPosition(selRect);
 
-    setPopover({ type: "create", x, y, savedRange: range.cloneRange() });
+    setPopover({ type: "create", x, y, placement, savedRange: range.cloneRange() });
   }, []);
 
   const handleConvertToVar = useCallback(() => {
@@ -255,7 +261,7 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
   }, [popover, onChange]);
 
   return (
-    <div ref={containerRef} className={`relative ${className ?? ""}`}>
+    <div className={`relative ${className ?? ""}`}>
       <div
         ref={editorRef}
         contentEditable
@@ -272,15 +278,17 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
         style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
       />
 
-      {/* Selection popover */}
-      {popover && (
+      {/* Selection popover — portaled so it can escape overflow:hidden parents */}
+      {popover && createPortal(
         <div
           ref={popoverRef}
           style={{
-            position: "absolute",
+            position: "fixed",
             left: popover.x,
             top: popover.y,
-            transform: "translateX(-50%)",
+            transform: popover.placement === "top"
+              ? "translate(-50%, -100%)"
+              : "translateX(-50%)",
             zIndex: 50,
           }}
           onMouseDown={(e) => e.preventDefault()}
@@ -288,7 +296,8 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
           className="bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] text-xs font-medium rounded-md px-3 py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.07)] cursor-pointer hover:bg-[var(--color-bg-secondary)] whitespace-nowrap transition-colors select-none"
         >
           {popover.type === "create" ? "Convert to variable" : "Remove variable"}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
