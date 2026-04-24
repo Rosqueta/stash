@@ -287,8 +287,8 @@ function AboutSection() {
 
   const externalLinks = [
     { icon: <Globe size={15} />, label: "Website",       url: "https://stash.app" },
-    { icon: <ChatTeardropDots size={15} />, label: "Send Feedback", url: "https://tally.so" },
-    { icon: <GithubLogo size={15} />, label: "GitHub",   url: "https://github.com" },
+    { icon: <ChatTeardropDots size={15} />, label: "Send Feedback", url: "https://tally.so/r/pb0LZZ" },
+    { icon: <GithubLogo size={15} />, label: "GitHub",   url: "https://github.com/Rosqueta/stash" },
   ];
 
   return (
