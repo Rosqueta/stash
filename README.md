@@ -58,7 +58,7 @@ npm run tauri build
 
 ## Contributing
 
-Feedback, issues, and small improvements are welcome. For larger changes, please open an issue first.
+Feedback, issues, and small improvements are welcome. If you just want to share product feedback, use the [feedback form](https://tally.so/r/pb0LZZ). For larger changes, please open an issue first.
 
 ## License
 
