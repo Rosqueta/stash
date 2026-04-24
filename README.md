@@ -6,7 +6,7 @@ A minimalist, offline-first app for saving, organizing, and using AI prompts on 
 
 ![macOS](https://img.shields.io/badge/platform-macOS-lightgrey) ![Offline-first](https://img.shields.io/badge/offline--first-6b7280) ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB)
 
-[Website](https://stash.app) · [Releases](https://github.com/Rosqueta/stash/releases)
+[Website](https://stash.app) · [Releases](https://github.com/Rosqueta/stash/releases) · [Feedback](https://tally.so/r/pb0LZZ)
 
 ## Features
 
