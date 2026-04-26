@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { PushPin, Copy, Trash, Folder, CaretDown, Note, Notepad, MagnifyingGlass, Plus, Check, PencilSimple, X } from "@phosphor-icons/react";
+import { PushPin, Copy, Trash, Folder, CaretDown, CaretUp, Note, Notepad, MagnifyingGlass, Plus, Check, PencilSimple, X } from "@phosphor-icons/react";
 import { VariableEditor } from "./VariableEditor";
 import { WarmUp } from "../warm-up/WarmUp";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -31,11 +31,40 @@ export function PromptDetail() {
   const [isPinned, setIsPinned] = useState(false);
   const [warmUpOpen, setWarmUpOpen] = useState(false);
   const [tagPendingDelete, setTagPendingDelete] = useState<string | null>(null);
+  const [notesExpanded, setNotesExpanded] = useState(true);
+
+  // Reset notes to expanded default whenever the selected prompt changes,
+  // synchronously during render so CSS transition doesn't fire.
+  const lastPromptIdRef = useRef<string | null | undefined>(undefined);
+  if (lastPromptIdRef.current !== (prompt?.id ?? null)) {
+    lastPromptIdRef.current = prompt?.id ?? null;
+    if (!notesExpanded) setNotesExpanded(true);
+  }
 
   const outerContainerRef = useRef<HTMLDivElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoSizeNotes = useCallback(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    autoSizeNotes();
+  }, [notes, notesExpanded, autoSizeNotes]);
+
+  // Recalculate notes height when the panel width changes (text re-wraps)
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => autoSizeNotes());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [autoSizeNotes, notesExpanded]);
 
   const saveDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const notesDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPatchRef = useRef<Partial<Prompt> | null>(null);
   const currentPromptRef = useRef<Prompt | null>(null);
 
@@ -105,7 +134,6 @@ export function PromptDetail() {
 
   useEffect(() => {
     return () => {
-      if (notesDebounce.current) clearTimeout(notesDebounce.current);
       // Flush any pending save on unmount so no data is lost
       void flushSave();
     };
@@ -121,11 +149,9 @@ export function PromptDetail() {
 
   const handleNotesChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setNotes(e.target.value);
-      if (notesDebounce.current) clearTimeout(notesDebounce.current);
-      notesDebounce.current = setTimeout(() => {
-        scheduleSave({ notes: e.target.value });
-      }, 300);
+      const nextValue = e.target.value;
+      setNotes(nextValue);
+      scheduleSave({ notes: nextValue });
     },
     [scheduleSave]
   );
@@ -183,9 +209,10 @@ export function PromptDetail() {
 
   return (
     <div ref={outerContainerRef} className="relative flex flex-col flex-1 h-full overflow-hidden">
-      <div key={selectedId} className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4 animate-content-in">
+      <div key={selectedId} className="flex-1 min-h-0 flex flex-col animate-content-in">
 
-        {/* Collection + actions row */}
+        {/* Header — collection + actions + title + tags (fixed) */}
+        <div className="shrink-0 px-8 pt-6 pb-3 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           {/* Collection selector */}
           <DropdownMenu.Root>
@@ -294,9 +321,10 @@ export function PromptDetail() {
           }}
           onDeleteTag={(name) => setTagPendingDelete(name)}
         />
+        </div>
 
-        {/* Content */}
-        <div>
+        {/* Content — always flex-[3]; takes 60% when notes are flex-[2], 100% when notes flex-[0] */}
+        <div className="flex-[3] min-h-0 overflow-y-auto px-8 py-2">
           <VariableEditor
             value={content}
             onChange={(val) => { setContent(val); scheduleSave({ content: val }); }}
@@ -304,23 +332,44 @@ export function PromptDetail() {
           />
         </div>
 
-        {/* Notes divider */}
-        <div className="flex items-center gap-3 mt-2">
-          <div className="flex-1 h-px bg-[var(--color-border)]" />
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            <Note size={12} weight="regular" />
-            Notes
-          </span>
-          <div className="flex-1 h-px bg-[var(--color-border)]" />
-        </div>
+        {/* Notes divider — clickable toggle */}
+        <button
+          type="button"
+          onClick={() => setNotesExpanded((v) => !v)}
+          aria-expanded={notesExpanded}
+          aria-label={notesExpanded ? "Collapse notes" : "Expand notes"}
+          className={`shrink-0 px-8 pt-2 group cursor-pointer focus:outline-none transition-[padding] duration-200 ease-out ${notesExpanded ? "pb-2" : "pb-8"}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[var(--color-border)]" />
+            <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors">
+              <Note size={12} weight="regular" />
+              Notes
+              {notesExpanded ? <CaretDown size={10} /> : <CaretUp size={10} />}
+            </span>
+            <div className="flex-1 h-px bg-[var(--color-border)]" />
+          </div>
+        </button>
 
-        {/* Notes */}
-        <textarea
-          value={notes}
-          onChange={handleNotesChange}
-          placeholder="Notes about this prompt..."
-          className="w-full min-h-[80px] resize-none bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-relaxed selectable"
-        />
+        {/* Notes — animated collapse via flex-grow + opacity */}
+        <div
+          aria-hidden={!notesExpanded}
+          className={`min-h-0 overflow-y-auto px-8 transition-[flex-grow,opacity,padding] duration-200 ease-out ${
+            notesExpanded
+              ? "flex-[2] opacity-100 pt-1 pb-6 pointer-events-auto"
+              : "flex-[0_0_0px] opacity-0 pt-0 pb-0 pointer-events-none"
+          }`}
+        >
+          <textarea
+            ref={notesRef}
+            value={notes}
+            onChange={handleNotesChange}
+            placeholder="Notes about this prompt..."
+            rows={1}
+            tabIndex={notesExpanded ? 0 : -1}
+            className="w-full resize-none overflow-hidden bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none leading-relaxed selectable"
+          />
+        </div>
       </div>
 
       {/* Warm-Up modal */}

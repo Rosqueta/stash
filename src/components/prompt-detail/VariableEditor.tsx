@@ -83,6 +83,12 @@ function htmlToValue(el: HTMLElement): string {
   return result;
 }
 
+function normalizeEmptyEditor(el: HTMLElement) {
+  if (htmlToValue(el) === "") {
+    el.innerHTML = "";
+  }
+}
+
 export function VariableEditor({ value, onChange, placeholder, className }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -91,7 +97,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
 
   // Mount: set initial HTML
   useEffect(() => {
-    if (editorRef.current) editorRef.current.innerHTML = valueToHTML(value);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = valueToHTML(value);
+      normalizeEmptyEditor(editorRef.current);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,7 +109,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
     const el = editorRef.current;
     if (!el || document.activeElement === el) return;
     const current = htmlToValue(el);
-    if (current !== value) el.innerHTML = valueToHTML(value);
+    if (current !== value) {
+      el.innerHTML = valueToHTML(value);
+      normalizeEmptyEditor(el);
+    }
   }, [value]);
 
   // Close popover on outside click
@@ -126,7 +138,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
       el.dataset.var = newName;
       el.textContent = newName;
     }
-    if (editorRef.current) onChange(htmlToValue(editorRef.current));
+    if (editorRef.current) {
+      normalizeEmptyEditor(editorRef.current);
+      onChange(htmlToValue(editorRef.current));
+    }
   }, [onChange]);
 
   const cancelChipEdit = useCallback((el: HTMLElement, originalName: string) => {
@@ -137,7 +152,11 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
 
   const handleInput = useCallback(() => {
     if (editingChipRef.current) return;
-    if (editorRef.current) onChange(htmlToValue(editorRef.current));
+    if (editorRef.current) {
+      const nextValue = htmlToValue(editorRef.current);
+      if (nextValue === "") normalizeEmptyEditor(editorRef.current);
+      onChange(nextValue);
+    }
   }, [onChange]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -248,7 +267,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
       sel.addRange(newRange);
     }
 
-    if (editorRef.current) onChange(htmlToValue(editorRef.current));
+    if (editorRef.current) {
+      normalizeEmptyEditor(editorRef.current);
+      onChange(htmlToValue(editorRef.current));
+    }
     setPopover(null);
   }, [popover, onChange]);
 
@@ -256,7 +278,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
     if (!popover?.chipEl) return;
     const text = document.createTextNode(popover.chipEl.dataset.var ?? "");
     popover.chipEl.parentNode?.replaceChild(text, popover.chipEl);
-    if (editorRef.current) onChange(htmlToValue(editorRef.current));
+    if (editorRef.current) {
+      normalizeEmptyEditor(editorRef.current);
+      onChange(htmlToValue(editorRef.current));
+    }
     setPopover(null);
   }, [popover, onChange]);
 

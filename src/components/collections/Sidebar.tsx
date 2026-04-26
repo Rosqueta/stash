@@ -14,7 +14,7 @@ function createNewPrompt(collectionId: string | null = null): Prompt {
   const now = Date.now();
   return {
     id: generateId(),
-    title: "Untitled",
+    title: "",
     content: "",
     collectionId,
     tags: [],
@@ -32,6 +32,14 @@ const COLLECTION_COLORS = [
   "#d97706", "#0ea5e9", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b",
 ];
 
+function pickNextCollectionColor(existing: { color: string }[]): string {
+  const used = new Set(existing.map((c) => c.color));
+  const free = COLLECTION_COLORS.find((c) => !used.has(c));
+  if (free) return free;
+  // All colors taken: cycle by count
+  return COLLECTION_COLORS[existing.length % COLLECTION_COLORS.length];
+}
+
 export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => void; onSettingsOpen: () => void }) {
   const { collections, activeCollectionId, prompts } = usePromptsData();
   const { hasSeenShortcutHint, markHintSeen } = useTheme();
@@ -39,6 +47,8 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
     usePromptsActions();
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
   const newCollectionInputRef = useRef<HTMLInputElement>(null);
   const [m1Triggered, setM1Triggered] = useState(false);
 
@@ -85,15 +95,40 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
       const collection: Collection = {
         id: generateId(),
         name,
-        color: COLLECTION_COLORS[collections.length % COLLECTION_COLORS.length],
+        color: pickNextCollectionColor(collections),
       };
       await saveCollection(collection);
+      setActiveCollection(collection.id);
       setNewCollectionName("");
       setIsAdding(false);
     } catch {
       // Error feedback is handled in context actions.
     }
-  }, [newCollectionName, collections.length, saveCollection]);
+  }, [newCollectionName, collections, saveCollection, setActiveCollection]);
+
+  const startEditingCollection = useCallback((collection: Collection) => {
+    setEditingCollectionId(collection.id);
+    setEditingName(collection.name);
+  }, []);
+
+  const cancelEditingCollection = useCallback(() => {
+    setEditingCollectionId(null);
+    setEditingName("");
+  }, []);
+
+  const saveEditedCollection = useCallback(async (collection: Collection) => {
+    const trimmed = editingName.trim();
+    if (!trimmed || trimmed === collection.name) {
+      cancelEditingCollection();
+      return;
+    }
+    try {
+      await saveCollection({ ...collection, name: trimmed });
+      cancelEditingCollection();
+    } catch {
+      // Error feedback is handled in context actions.
+    }
+  }, [editingName, saveCollection, cancelEditingCollection]);
 
   return (
     <aside className="flex flex-col h-full w-[220px] border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)] shrink-0">
@@ -157,7 +192,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             <Folder
               size={16}
               weight="regular"
-              style={{ color: COLLECTION_COLORS[collections.length % COLLECTION_COLORS.length] }}
+              style={{ color: pickNextCollectionColor(collections) }}
               className="shrink-0"
             />
             <input
@@ -187,8 +222,16 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             key={c.id}
             collection={c}
             active={activeCollectionId === c.id}
-            onSelect={() => setActiveCollection(c.id)}
+            isEditing={editingCollectionId === c.id}
+            editingName={editingName}
+            onEditingNameChange={setEditingName}
+            onSelect={() => {
+              if (editingCollectionId !== c.id) setActiveCollection(c.id);
+            }}
             onDelete={() => deleteCollection(c.id)}
+            onStartEdit={() => startEditingCollection(c)}
+            onSaveEdit={() => void saveEditedCollection(c)}
+            onCancelEdit={cancelEditingCollection}
           />
         ))}
         </div>
@@ -261,14 +304,35 @@ function SidebarItem({
 function CollectionItem({
   collection,
   active,
+  isEditing,
+  editingName,
+  onEditingNameChange,
   onSelect,
   onDelete,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
 }: {
   collection: Collection;
   active: boolean;
+  isEditing: boolean;
+  editingName: string;
+  onEditingNameChange: (value: string) => void;
   onSelect: () => void;
   onDelete: () => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing]);
+
   return (
     <div
       className={cn(
@@ -278,15 +342,33 @@ function CollectionItem({
           : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]"
       )}
       onClick={onSelect}
+      onDoubleClick={onStartEdit}
     >
       <div className="flex items-center gap-2 min-w-0">
         {active
           ? <FolderOpen size={16} weight="regular" style={{ color: collection.color }} className="shrink-0" />
           : <Folder size={16} weight="regular" style={{ color: collection.color }} className="shrink-0" />
         }
-        <span className="truncate">{collection.name}</span>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            value={editingName}
+            onChange={(e) => onEditingNameChange(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent text-sm text-[var(--color-text)] focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onBlur={onSaveEdit}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") void onSaveEdit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+          />
+        ) : (
+          <span className="truncate">{collection.name}</span>
+        )}
       </div>
-      <div className="flex items-center">
+      <div className={cn("flex items-center", isEditing && "invisible")}>
         <Tooltip label="Delete collection">
           <IconButton
             size="sm"

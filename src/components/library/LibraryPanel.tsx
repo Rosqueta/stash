@@ -29,13 +29,19 @@ function stripVariables(content: string): string {
   return content.replace(/\{\{([^}]+)\}\}/g, "$1");
 }
 
+function detectInitialLanguage(): Lang {
+  const navLang = navigator.language || "en";
+  const langCode = navLang.split("-")[0].toLowerCase();
+  return langCode === "es" ? "es" : "en";
+}
+
 export function LibraryPanel() {
   const [data, setData] = useState<TemplatesData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
-  const [lang, setLang] = useState<Lang>("es");
+  const [lang, setLang] = useState<Lang>(detectInitialLanguage());
   const { savePrompt } = usePromptsActions();
 
   async function handleDirectAdd(template: Template, e: React.MouseEvent) {

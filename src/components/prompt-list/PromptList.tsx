@@ -10,7 +10,7 @@ function createNewPrompt(collectionId: string | null = null): Prompt {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    title: "Untitled",
+    title: "",
     content: "",
     collectionId,
     tags: [],
