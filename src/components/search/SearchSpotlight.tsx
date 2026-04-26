@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MagnifyingGlass, Notepad } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { extractVariables } from "../../services/variables";
+import { WarmUp } from "../warm-up/WarmUp";
+import type { Prompt } from "../../types/prompt";
 
 export function SearchSpotlight({ onClose }: { onClose: () => void }) {
   const { prompts, collections } = usePromptsData();
   const { selectPrompt, copyPrompt } = usePromptsActions();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [warmUpPrompt, setWarmUpPrompt] = useState<Prompt | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
 
@@ -37,9 +42,14 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
 
   async function handleCopy(id: string) {
     const prompt = prompts.find((p) => p.id === id);
-    if (prompt) await copyPrompt(prompt);
+    if (!prompt) return;
     selectPrompt(id);
-    onClose();
+    if (extractVariables(prompt.content).length > 0) {
+      setWarmUpPrompt(prompt);
+    } else {
+      await copyPrompt(prompt);
+      onClose();
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -62,6 +72,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
   }
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-[18vh] bg-black/20"
       onClick={onClose}
@@ -154,5 +165,26 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+
+    {warmUpPrompt && createPortal(
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+        onClick={(e) => { if (e.target === e.currentTarget) setWarmUpPrompt(null); }}
+      >
+        <div className="w-full max-w-lg mx-6 bg-[var(--color-bg)] rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden max-h-[80vh] flex flex-col">
+          <WarmUp
+            prompt={warmUpPrompt}
+            onCopy={async (resolved) => {
+              await copyPrompt(warmUpPrompt, false, resolved);
+              setWarmUpPrompt(null);
+              onClose();
+            }}
+            onClose={() => setWarmUpPrompt(null)}
+          />
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

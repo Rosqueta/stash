@@ -6,6 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { fetchTemplates, buildPromptFromTemplate } from "../../services/templateService";
+import { detectInitialLanguage } from "../../services/locale";
 import type { Template, TemplatesData, Lang } from "../../types/template";
 import { TemplateModal } from "./TemplateModal";
 import { usePromptsActions } from "../../context/PromptsContext";
@@ -29,12 +30,6 @@ function stripVariables(content: string): string {
   return content.replace(/\{\{([^}]+)\}\}/g, "$1");
 }
 
-function detectInitialLanguage(): Lang {
-  const navLang = navigator.language || "en";
-  const langCode = navLang.split("-")[0].toLowerCase();
-  return langCode === "es" ? "es" : "en";
-}
-
 export function LibraryPanel() {
   const [data, setData] = useState<TemplatesData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +44,7 @@ export function LibraryPanel() {
     try {
       const prompt = buildPromptFromTemplate(template, null, lang);
       await savePrompt(prompt);
-      toastSuccess("Prompt añadido");
+      toastSuccess(lang === "es" ? "Prompt añadido" : "Added to your prompts");
     } catch {
       // silently fail — savePrompt already shows an error toast via context
     }

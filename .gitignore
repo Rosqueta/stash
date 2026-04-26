@@ -11,3 +11,13 @@ src-tauri/gen/
 
 # TypeScript incremental
 *.tsbuildinfo
+
+# Internal docs (planning, PRDs, specs)
+docs/LIBRARY_LANGUAGE_SELECTOR.md
+docs/LIBRERIA_PROMPTS.md
+docs/PLAN_TESTS_UNITARIOS.md
+docs/PRD_v1.md
+docs/Stash_PRD_v1.docx
+
+# Claude internal files
+.claude/

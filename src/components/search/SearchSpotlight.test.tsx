@@ -162,4 +162,81 @@ describe("SearchSpotlight", () => {
     expect(vi.mocked(copyToClipboard)).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  describe("WarmUp con prompts que tienen variables", () => {
+    beforeEach(() => {
+      mockPrompts = [
+        makePrompt("p1", "Sin variables", "Texto plano sin placeholders"),
+        makePrompt("p2", "Con variables", "Hola {{nombre}}, tu pedido {{pedido}} está listo"),
+      ];
+    });
+
+    it("copia directamente y cierra cuando el prompt no tiene variables", async () => {
+      const user = userEvent.setup();
+      const onClose = vi.fn();
+      const { copyToClipboard } = await import("../../services/storage");
+      vi.mocked(copyToClipboard).mockClear();
+      render(<TestApp onClose={onClose} />);
+      await waitForPrompts();
+
+      // p1 (sin variables) está activo por defecto (primer item)
+      await user.keyboard("{Enter}");
+
+      expect(vi.mocked(copyToClipboard)).toHaveBeenCalledWith("Texto plano sin placeholders");
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("abre el modal WarmUp y NO cierra el palette cuando el prompt tiene variables", async () => {
+      const user = userEvent.setup();
+      const onClose = vi.fn();
+      const { copyToClipboard } = await import("../../services/storage");
+      vi.mocked(copyToClipboard).mockClear();
+      render(<TestApp onClose={onClose} />);
+      await waitForPrompts();
+
+      // Selecciona p2 (segundo item) y dispara Enter
+      await user.keyboard("{ArrowDown}");
+      await user.keyboard("{Enter}");
+
+      // El modal WarmUp aparece — busca el contador de variables como prueba
+      await screen.findByText(/0 of 2 variables/i);
+
+      // El palette NO se cerró todavía — copy no se llamó
+      expect(vi.mocked(copyToClipboard)).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("al confirmar el WarmUp copia el contenido resuelto y cierra todo", async () => {
+      const user = userEvent.setup();
+      const onClose = vi.fn();
+      const { copyToClipboard } = await import("../../services/storage");
+      vi.mocked(copyToClipboard).mockClear();
+      render(<TestApp onClose={onClose} />);
+      await waitForPrompts();
+
+      await user.keyboard("{ArrowDown}");
+      await user.keyboard("{Enter}");
+
+      // Espera a que aparezca el modal — el primer chip ya entra en edit mode
+      const nombreInput = await screen.findByPlaceholderText("{{nombre}}");
+      await user.type(nombreInput, "Ana{Tab}");
+
+      // Tras Tab, el siguiente chip pedido entra en edit mode
+      const pedidoInput = await screen.findByPlaceholderText("{{pedido}}");
+      await user.type(pedidoInput, "#42{Enter}");
+
+      // Click en "Copy"
+      const copyButton = screen.getByRole("button", { name: /copy/i });
+      await user.click(copyButton);
+
+      await vi.waitFor(() => {
+        expect(vi.mocked(copyToClipboard)).toHaveBeenCalledWith(
+          "Hola Ana, tu pedido #42 está listo"
+        );
+      });
+      await vi.waitFor(() => {
+        expect(onClose).toHaveBeenCalled();
+      });
+    });
+  });
 });

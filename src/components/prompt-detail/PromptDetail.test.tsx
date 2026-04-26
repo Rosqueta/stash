@@ -306,3 +306,73 @@ describe("PromptDetail tags", () => {
     ]);
   });
 });
+
+describe("PromptDetail notes toggle", () => {
+  beforeEach(() => {
+    toastSuccessMock.mockReset();
+    toastErrorMock.mockReset();
+    seedStorage([
+      createPrompt("a", "Prompt A", []),
+      createPrompt("b", "Prompt B", []),
+    ]);
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("arranca expandido por defecto al seleccionar un prompt", async () => {
+    const user = userEvent.setup();
+    render(<TestApp />);
+    await selectPrompt(user, "Prompt A");
+
+    const toggle = screen.getByRole("button", { name: "Collapse notes" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByPlaceholderText("Notes about this prompt...")).toBeInTheDocument();
+  });
+
+  it("colapsa al hacer click en el divider", async () => {
+    const user = userEvent.setup();
+    render(<TestApp />);
+    await selectPrompt(user, "Prompt A");
+
+    const toggle = screen.getByRole("button", { name: "Collapse notes" });
+    await user.click(toggle);
+
+    const collapsed = screen.getByRole("button", { name: "Expand notes" });
+    expect(collapsed).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("vuelve a expandir al hacer click otra vez", async () => {
+    const user = userEvent.setup();
+    render(<TestApp />);
+    await selectPrompt(user, "Prompt A");
+
+    await user.click(screen.getByRole("button", { name: "Collapse notes" }));
+    await user.click(screen.getByRole("button", { name: "Expand notes" }));
+
+    const reopened = screen.getByRole("button", { name: "Collapse notes" });
+    expect(reopened).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("se resetea a expandido al cambiar de prompt seleccionado", async () => {
+    const user = userEvent.setup();
+    render(<TestApp />);
+    await selectPrompt(user, "Prompt A");
+
+    // Colapsar en Prompt A
+    await user.click(screen.getByRole("button", { name: "Collapse notes" }));
+    expect(
+      screen.getByRole("button", { name: "Expand notes" })
+    ).toHaveAttribute("aria-expanded", "false");
+
+    // Cambiar a Prompt B → debe volver a expandido por defecto
+    await selectPrompt(user, "Prompt B");
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Collapse notes" })
+      ).toHaveAttribute("aria-expanded", "true");
+    });
+  });
+});

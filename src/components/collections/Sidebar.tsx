@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { useTheme } from "../../context/ThemeContext";
 import { IconButton, Tooltip } from "../ui";
+import { pickNextCollectionColor } from "../../services/collectionColors";
 import type { Collection, Prompt } from "../../types/prompt";
 
 function generateId() {
@@ -26,18 +27,6 @@ function createNewPrompt(collectionId: string | null = null): Prompt {
     useCount: 0,
     notes: "",
   };
-}
-
-const COLLECTION_COLORS = [
-  "#d97706", "#0ea5e9", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b",
-];
-
-function pickNextCollectionColor(existing: { color: string }[]): string {
-  const used = new Set(existing.map((c) => c.color));
-  const free = COLLECTION_COLORS.find((c) => !used.has(c));
-  if (free) return free;
-  // All colors taken: cycle by count
-  return COLLECTION_COLORS[existing.length % COLLECTION_COLORS.length];
 }
 
 export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => void; onSettingsOpen: () => void }) {
