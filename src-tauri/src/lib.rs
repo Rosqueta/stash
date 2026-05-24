@@ -111,15 +111,6 @@ fn settings_path(app: &AppHandle) -> PathBuf {
     app.path().app_data_dir().expect("app data dir").join("settings.json")
 }
 
-fn migrate_legacy_data(legacy: &std::path::Path, new_path: &std::path::Path) {
-    if legacy.exists() && !new_path.exists() {
-        if let Some(parent) = new_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let _ = std::fs::copy(legacy, new_path);
-    }
-}
-
 fn read_settings_sync(path: &std::path::Path) -> AppSettings {
     if !path.exists() { return AppSettings::default(); }
     std::fs::read_to_string(path)
@@ -555,6 +546,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Load settings
             let settings_file = settings_path(app.handle());
@@ -563,9 +555,6 @@ pub fn run() {
 
             // Resolve and store data dir
             let data_dir = resolve_data_dir(&settings);
-            let new_stash = data_dir.join("stash.json");
-            let legacy_stash = app.path().app_data_dir().expect("app data dir").join("stash.json");
-            migrate_legacy_data(&legacy_stash, &new_stash);
             *app.state::<DataDir>().0.lock().unwrap() = data_dir;
 
             // Store the current shortcut
@@ -573,6 +562,17 @@ pub fn run() {
 
             // Register shortcut with handler
             register_palette_shortcut(app.handle(), &shortcut_str)?;
+
+            // Hide main window on close instead of destroying it (app keeps running for global shortcut)
+            if let Some(main) = app.get_webview_window("main") {
+                let main_clone = main.clone();
+                main.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = main_clone.hide();
+                    }
+                });
+            }
 
             Ok(())
         })
@@ -601,6 +601,16 @@ pub fn run() {
             set_templates_cache,
             mark_hint_seen,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Stash");
+        .build(tauri::generate_context!())
+        .expect("error while building Stash")
+        .run(|app, event| {
+            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+                if !has_visible_windows {
+                    if let Some(main) = app.get_webview_window("main") {
+                        let _ = main.show();
+                        let _ = main.set_focus();
+                    }
+                }
+            }
+        });
 }

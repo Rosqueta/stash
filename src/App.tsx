@@ -1,9 +1,10 @@
 import "./App.css";
 import { useState, useEffect, useCallback } from "react";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "@phosphor-icons/react";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { ThemeProvider } from "./context/ThemeContext";
 import { PromptsProvider } from "./context/PromptsContext";
 import { Sidebar } from "./components/collections/Sidebar";
@@ -93,12 +94,74 @@ function AppShell() {
   );
 }
 
+// ── Auto-updater ──────────────────────────────────────────────────────────────
+
+function UpdateToast({ update, toastId }: { update: Update; toastId: string | number }) {
+  const [installing, setInstalling] = useState(false);
+
+  const handleUpdate = async () => {
+    setInstalling(true);
+    try {
+      await update.downloadAndInstall();
+      toast.dismiss(toastId);
+      toast.success("Update installed! Restart Stash to apply.", { duration: Infinity, closeButton: true });
+    } catch {
+      toast.error("Update failed. Please try again later.");
+      setInstalling(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-sm font-medium">Update available: v{update.version}</p>
+      {update.body && (
+        <p className="text-xs text-[var(--color-text-muted)] line-clamp-3">{update.body}</p>
+      )}
+      <button
+        onClick={() => void handleUpdate()}
+        disabled={installing}
+        className="self-start mt-1 text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--color-text)] text-[var(--color-bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+      >
+        {installing ? "Installing..." : "Update Now"}
+      </button>
+    </div>
+  );
+}
+
+export async function showUpdateToast(): Promise<"update" | "no-update" | "error"> {
+  try {
+    const update = await check();
+    if (update) {
+      toast(<UpdateToast update={update} toastId="update-toast" />, {
+        id: "update-toast",
+        duration: Infinity,
+        closeButton: true,
+      });
+      return "update";
+    }
+    return "no-update";
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes("404") || msg.includes("network") || msg.includes("Could not fetch")) {
+      return "no-update";
+    }
+    console.error("Update check failed:", err);
+    return "error";
+  }
+}
+
 export default function App() {
   const isPalette = windowLabel === "palette";
 
   useEffect(() => {
     void invoke("setup_palette_window");
   }, []);
+
+  useEffect(() => {
+    if (isPalette) return;
+    const timer = setTimeout(() => void showUpdateToast(), 3000);
+    return () => clearTimeout(timer);
+  }, [isPalette]);
 
   return (
     <ThemeProvider>

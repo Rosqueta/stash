@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Sun, Keyboard, Folder, FolderOpen, Info, Globe, ChatTeardropDots, GithubLogo,
+  Sun, Keyboard, Folder, FolderOpen, Info, Globe, ChatTeardropDots, GithubLogo, ArrowsClockwise,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo } from "@tauri-apps/api/event";
+import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useTheme } from "../../context/ThemeContext";
+import { showUpdateToast } from "../../App";
 import aboutImg from "../../assets/about.png";
 import aboutImgDark from "../../assets/dark-about.png";
 
@@ -280,10 +282,19 @@ function DataSection() {
 
 function AboutSection() {
   const [version, setVersion] = useState("0.1.0");
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     invoke<string>("get_app_version").then(setVersion).catch(console.error);
   }, []);
+
+  const handleCheckUpdates = async () => {
+    setChecking(true);
+    const result = await showUpdateToast();
+    setChecking(false);
+    if (result === "no-update") toast.success("You're on the latest version!");
+    if (result === "error") toast.error("Couldn't check for updates. Try again later.");
+  };
 
   const externalLinks = [
     { icon: <Globe size={15} />, label: "Website",       url: "https://stash.app" },
@@ -297,6 +308,14 @@ function AboutSection() {
       <img src={aboutImgDark} alt="Stash" className="w-28 h-28 object-contain mb-4 hidden dark:block" />
       <h2 className="text-xl font-bold text-[var(--color-text)]">Stash</h2>
       <p className="text-sm text-[var(--color-text-muted)] mt-1">Version {version}</p>
+      <button
+        onClick={() => void handleCheckUpdates()}
+        disabled={checking}
+        className="mt-2 flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-50 transition-colors"
+      >
+        <ArrowsClockwise size={13} className={checking ? "animate-spin" : ""} />
+        {checking ? "Checking..." : "Check for updates"}
+      </button>
       <p className="text-sm text-[var(--color-text-muted)] mt-4 leading-relaxed">
         A minimalist prompt manager for macOS.<br />
         Offline-first, no account, no cloud. Your prompts, your files.
