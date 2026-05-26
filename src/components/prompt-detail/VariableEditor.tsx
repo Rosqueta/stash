@@ -84,7 +84,10 @@ function htmlToValue(el: HTMLElement): string {
 }
 
 function normalizeEmptyEditor(el: HTMLElement) {
-  if (htmlToValue(el) === "") {
+  // Treat an editor with no variable chips and no text (e.g. a leftover <br>
+  // that WebKit inserts after deleting all content) as truly empty, so the
+  // CSS :empty placeholder shows again.
+  if (!el.querySelector("[data-var]") && (el.textContent ?? "") === "") {
     el.innerHTML = "";
   }
 }
@@ -152,11 +155,10 @@ export function VariableEditor({ value, onChange, placeholder, className }: Prop
 
   const handleInput = useCallback(() => {
     if (editingChipRef.current) return;
-    if (editorRef.current) {
-      const nextValue = htmlToValue(editorRef.current);
-      if (nextValue === "") normalizeEmptyEditor(editorRef.current);
-      onChange(nextValue);
-    }
+    const el = editorRef.current;
+    if (!el) return;
+    normalizeEmptyEditor(el);
+    onChange(htmlToValue(el));
   }, [onChange]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
