@@ -94,13 +94,16 @@ impl Default for AppSettings {
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
-fn default_data_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(home).join("Documents").join("Stash")
+fn default_data_dir(app: &AppHandle) -> PathBuf {
+    app.path().app_data_dir().expect("app data dir")
 }
 
-fn resolve_data_dir(settings: &AppSettings) -> PathBuf {
-    settings.data_dir.as_ref().map(PathBuf::from).unwrap_or_else(default_data_dir)
+fn resolve_data_dir(app: &AppHandle, settings: &AppSettings) -> PathBuf {
+    settings
+        .data_dir
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| default_data_dir(app))
 }
 
 fn stash_path(app: &AppHandle) -> PathBuf {
@@ -542,7 +545,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(PreviousApp(Mutex::new(None)))
         .manage(CurrentShortcut(Mutex::new(default_shortcut())))
-        .manage(DataDir(Mutex::new(default_data_dir())))
+        .manage(DataDir(Mutex::new(PathBuf::new())))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -554,7 +557,7 @@ pub fn run() {
             let shortcut_str = settings.global_shortcut.clone();
 
             // Resolve and store data dir
-            let data_dir = resolve_data_dir(&settings);
+            let data_dir = resolve_data_dir(app.handle(), &settings);
             *app.state::<DataDir>().0.lock().unwrap() = data_dir;
 
             // Store the current shortcut

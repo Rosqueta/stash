@@ -233,7 +233,7 @@ function DataSection() {
 
   useEffect(() => { loadStats(); }, []);
 
-  const dataPath = stats?.dataPath ?? "~/Documents/Stash/stash.json";
+  const dataPath = stats?.dataPath ?? "";
   const displayPath = dataPath.replace(/^\/Users\/[^/]+/, "~");
 
   const handleChangeFolder = async () => {

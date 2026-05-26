@@ -1,6 +1,6 @@
 [package]
 name = "stash"
-version = "0.1.0"
+version = "0.1.1"
 description = "Minimalist macOS app for saving and using AI prompts"
 authors = []
 edition = "2021"

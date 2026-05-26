@@ -88,13 +88,16 @@ interface Collection {
 interface AppSettings {
   theme: "light" | "dark" | "system";   // default: "system"
   globalShortcut: string;               // default: "Super+Shift+KeyP"
-  dataDir: string | null;               // default: null → resolves to ~/Documents/Stash
+  dataDir: string | null;               // default: null → resolves to the app data dir
 }
 ```
 
 ### Storage
-`stash.json` is stored at `~/Documents/Stash/stash.json` by default.
-The user can change this path from Settings > Data; the custom path is persisted as `dataDir`
+`stash.json` is stored in the app data directory by default (`{APP_DATA}` —
+`~/Library/Application Support/com.stash.app/` on macOS). This avoids the macOS privacy
+prompt that appears when an app touches `~/Documents` unprompted. The user can change this
+path from Settings > Data (via the system folder picker, which grants access without a
+prompt); the custom path is persisted as `dataDir`
 in `settings.json`. Structure: `{ prompts: Prompt[], collections: Collection[], version: number }`.
 Settings stored separately at `{APP_DATA}/settings.json` (always fixed location).
 Never store to localStorage or sessionStorage.
