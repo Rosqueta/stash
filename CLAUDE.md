@@ -158,7 +158,7 @@ src/
       SearchSpotlight.tsx         # ⌘F search overlay
     prompt-list/
       PromptList.tsx              # Center panel — header (view title + New prompt), filtered list, empty state
-      PromptCard.tsx              # Single prompt row (title + optional pin)
+      PromptCard.tsx              # Prompt row — title, hover ⋯ actions menu (pin/copy/move/delete), optional pin
     prompt-detail/
       PromptDetail.tsx            # Right panel — title, content, notes, actions
       VariableEditor.tsx          # contenteditable editor with inline {{variable}} chips
