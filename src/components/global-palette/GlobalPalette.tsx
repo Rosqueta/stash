@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { capture } from "../../services/analytics";
 import { extractVariables } from "../../services/variables";
 import { WarmUp } from "../warm-up/WarmUp";
 import type { Prompt } from "../../types/prompt";
@@ -47,6 +48,7 @@ export function GlobalPalette() {
   useEffect(() => {
     const unlisten = appWindow.onFocusChanged(async ({ payload: focused }) => {
       if (focused) {
+        capture("palette_opened");
         await refresh();
         setQuery("");
         setActiveIndex(0);
@@ -114,14 +116,14 @@ export function GlobalPalette() {
       return;
     }
     setFrozenList([...liveFiltered]); // freeze before copy updates the store
-    await copyPrompt(prompt, true);
+    await copyPrompt(prompt, true, undefined, "palette");
     setCopiedId(prompt.id);
     setTimeout(() => void closeAnimated(), 850);
   }, [copyPrompt, closeAnimated, liveFiltered]);
 
   const handleWarmUpCopy = useCallback(async (resolvedContent: string) => {
     if (!warmUpPrompt) return;
-    await copyPrompt(warmUpPrompt, true, resolvedContent);
+    await copyPrompt(warmUpPrompt, true, resolvedContent, "palette");
   }, [copyPrompt, warmUpPrompt]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

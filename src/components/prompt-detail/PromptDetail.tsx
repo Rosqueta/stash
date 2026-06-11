@@ -277,7 +277,7 @@ export function PromptDetail() {
                   if (extractVariables(content).length > 0) {
                     setWarmUpOpen(true);
                   } else {
-                    void copyPrompt(prompt);
+                    void copyPrompt(prompt, false, undefined, "detail");
                   }
                 }}
               >
@@ -382,7 +382,7 @@ export function PromptDetail() {
             <WarmUp
               prompt={{ ...prompt, content }}
               onCopy={(resolved) => {
-                void copyPrompt(prompt, false, resolved);
+                void copyPrompt(prompt, false, resolved, "detail");
                 setWarmUpOpen(false);
               }}
               onClose={() => setWarmUpOpen(false)}

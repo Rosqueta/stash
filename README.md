@@ -1,6 +1,6 @@
 # Stash
 
-<img src="docs/app-icon.png" alt="Stash" width="128" height="128" style="border-radius: 22px; margin-bottom: 8px;">
+<img src=".github/app-icon.png" alt="Stash" width="128" height="128" style="border-radius: 22px; margin-bottom: 8px;">
 
 A minimalist, offline-first prompt manager for macOS.
 
@@ -18,7 +18,7 @@ Stash helps you keep your best AI prompts close at hand. Organize them with vari
 
 ## See it in action
 
-![Screenshot](docs/screenshot.png)
+![Screenshot](.github/screenshot.png)
 
 ## Download
 

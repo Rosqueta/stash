@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { capture } from "../services/analytics";
 
 import { toast } from "sonner";
 import { ConfirmIcon, toastSuccess } from "../components/ui";
@@ -32,7 +33,7 @@ interface PromptsActions {
   deletePrompt: (id: string) => Promise<void>;
   saveCollection: (collection: Collection) => Promise<void>;
   deleteCollection: (id: string) => Promise<void>;
-  copyPrompt: (prompt: Prompt, silent?: boolean, resolvedContent?: string) => Promise<void>;
+  copyPrompt: (prompt: Prompt, silent?: boolean, resolvedContent?: string, source?: string) => Promise<void>;
   renameTag: (oldName: string, newName: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -75,6 +76,11 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const promptsRef = useRef<Prompt[]>([]);
+  const collectionsRef = useRef<Collection[]>([]);
+
+  useEffect(() => { promptsRef.current = prompts; }, [prompts]);
+  useEffect(() => { collectionsRef.current = collections; }, [collections]);
 
   const loadData = useCallback(async (showMainWindow = false) => {
     try {
@@ -107,6 +113,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const savePrompt = useCallback(async (prompt: Prompt) => {
+    const existing = promptsRef.current.find((p) => p.id === prompt.id);
     try {
       await storage.savePrompt(prompt);
       setPrompts((prev) => {
@@ -116,6 +123,15 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         next[idx] = prompt;
         return next;
       });
+      if (!existing) {
+        capture("prompt_created", {
+          has_variables: /\{\{[^}]+\}\}/.test(prompt.content),
+          has_collection: prompt.collectionId !== null,
+          has_tags: prompt.tags.length > 0,
+        });
+      } else if (existing.isPinned !== prompt.isPinned) {
+        capture(prompt.isPinned ? "prompt_pinned" : "prompt_unpinned");
+      }
     } catch (e) {
       console.error(e);
       toast.error("Could not save prompt");
@@ -131,9 +147,11 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     setPrompts((prev) => prev.filter((p) => p.id !== id));
     setSelectedId(nextId);
     toastSuccess("Prompt deleted");
+    capture("prompt_deleted");
   }, [prompts, selectedId, activeCollectionId]);
 
   const saveCollection = useCallback(async (collection: Collection) => {
+    const isNew = !collectionsRef.current.find((c) => c.id === collection.id);
     try {
       await storage.saveCollection(collection);
       setCollections((prev) => {
@@ -143,6 +161,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         next[idx] = collection;
         return next;
       });
+      if (isNew) capture("collection_created");
     } catch (e) {
       console.error(e);
       toast.error("Could not save collection");
@@ -175,7 +194,7 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     toastSuccess(`Tag "${name}" deleted`);
   }, []);
 
-  const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string) => {
+  const copyPrompt = useCallback(async (prompt: Prompt, silent = false, resolvedContent?: string, source = "detail") => {
     try {
       await storage.copyToClipboard(resolvedContent ?? prompt.content);
       const now = Date.now();
@@ -191,6 +210,10 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         const next = [...prev];
         next[idx] = updated;
         return next;
+      });
+      capture("prompt_copied", {
+        source,
+        has_variables: /\{\{[^}]+\}\}/.test(prompt.content),
       });
       if (!silent) toast("Copied", { icon: <ConfirmIcon />, duration: 2000 });
     } catch {

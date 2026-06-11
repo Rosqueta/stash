@@ -7,6 +7,7 @@ import { X } from "@phosphor-icons/react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { ThemeProvider } from "./context/ThemeContext";
 import { PromptsProvider } from "./context/PromptsContext";
+import { initAnalytics, capture } from "./services/analytics";
 import { Sidebar } from "./components/collections/Sidebar";
 import { PromptList } from "./components/prompt-list/PromptList";
 import { PromptDetail } from "./components/prompt-detail/PromptDetail";
@@ -24,7 +25,10 @@ function AppShell() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+    capture("settings_opened");
+  }, []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   useEffect(() => {
@@ -58,7 +62,10 @@ function AppShell() {
         className="h-[52px] shrink-0 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]"
       />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onSearchOpen={() => setSearchOpen(true)} onSettingsOpen={openSettings} />
+        <Sidebar
+          onSearchOpen={() => { setSearchOpen(true); capture("search_opened"); }}
+          onSettingsOpen={openSettings}
+        />
         {activeCollectionId === "library" ? (
           <LibraryPanel />
         ) : (
@@ -159,6 +166,8 @@ export default function App() {
 
   useEffect(() => {
     if (isPalette) return;
+    initAnalytics();
+    capture("app_opened");
     const timer = setTimeout(() => void showUpdateToast(), 3000);
     return () => clearTimeout(timer);
   }, [isPalette]);

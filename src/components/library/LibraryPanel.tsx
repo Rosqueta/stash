@@ -12,6 +12,7 @@ import { TemplateModal } from "./TemplateModal";
 import { usePromptsActions } from "../../context/PromptsContext";
 import { IconButton, toastSuccess } from "../ui";
 import libraryImg from "../../assets/library.png";
+import { capture } from "../../services/analytics";
 
 type CategoryConfig = { Icon: Icon; bg: string; color: string };
 
@@ -45,12 +46,14 @@ export function LibraryPanel() {
       const prompt = buildPromptFromTemplate(template, null, lang);
       await savePrompt(prompt);
       toastSuccess(lang === "es" ? "Prompt añadido" : "Added to your prompts");
+      capture("template_imported", { category: template.category, lang, source: "quick_add" });
     } catch {
       // silently fail — savePrompt already shows an error toast via context
     }
   }
 
   useEffect(() => {
+    capture("library_opened");
     setIsLoading(true);
     setError(null);
     fetchTemplates()

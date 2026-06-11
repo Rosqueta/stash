@@ -13,6 +13,7 @@ src-tauri/gen/
 *.tsbuildinfo
 
 # Internal docs (planning, PRDs, specs)
+docs/ANALYTICS.md
 docs/LIBRARY_LANGUAGE_SELECTOR.md
 docs/LIBRERIA_PROMPTS.md
 docs/PLAN_TESTS_UNITARIOS.md

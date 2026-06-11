@@ -47,7 +47,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
     if (extractVariables(prompt.content).length > 0) {
       setWarmUpPrompt(prompt);
     } else {
-      await copyPrompt(prompt);
+      await copyPrompt(prompt, false, undefined, "search");
       onClose();
     }
   }
@@ -175,7 +175,7 @@ export function SearchSpotlight({ onClose }: { onClose: () => void }) {
           <WarmUp
             prompt={warmUpPrompt}
             onCopy={async (resolved) => {
-              await copyPrompt(warmUpPrompt, false, resolved);
+              await copyPrompt(warmUpPrompt, false, resolved, "search");
               setWarmUpPrompt(null);
               onClose();
             }}

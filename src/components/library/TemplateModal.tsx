@@ -8,6 +8,7 @@ import { usePromptsData, usePromptsActions } from "../../context/PromptsContext"
 import { IconButton } from "../ui";
 import { buildPromptFromTemplate } from "../../services/templateService";
 import type { Template, Lang } from "../../types/template";
+import { capture } from "../../services/analytics";
 
 interface Props {
   template: Template;
@@ -52,6 +53,7 @@ export function TemplateModal({ template, lang, onClose }: Props) {
       const prompt = buildPromptFromTemplate(template, selectedCollectionId, lang);
       await savePrompt(prompt);
       toastSuccess(lang === "es" ? "Prompt añadido" : "Added to your prompts");
+      capture("template_imported", { category: template.category, lang, source: "modal" });
       onClose();
     } catch {
       toast.error(lang === "es" ? "Error al importar el template" : "Failed to import template");
