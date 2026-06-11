@@ -106,9 +106,10 @@ export function PromptList() {
     selectPrompt(prompt.id);
   }, [activeCollectionId, savePrompt, selectPrompt]);
 
-  // The whole header disappears with the empty state (it has its own action);
-  // the + button is also hidden in Pinned (prompts can't be created there).
-  const showHeader = filtered.length > 0;
+  // The whole header disappears with the empty state (it has its own action) —
+  // unless tag filters are active, so the user can always clear them.
+  // The + button is also hidden in Pinned (prompts can't be created there).
+  const showHeader = filtered.length > 0 || activeTags.length > 0;
   const showNewButton = activeCollectionId !== "pinned";
 
   const viewTitle =
@@ -121,89 +122,94 @@ export function PromptList() {
   return (
     <div className="flex flex-col h-full w-[284px] border-r border-[var(--color-border)] shrink-0">
 
-      {/* Header — view title + new prompt */}
+      {/* Header — view title + tag filter + new prompt */}
       {showHeader && (
         <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2 border-b border-[var(--color-border)] shrink-0">
           <span className="text-sm font-medium text-[var(--color-text)] truncate">{viewTitle}</span>
-          {showNewButton && (
-            <Tooltip label="New prompt (⌘N)">
-              <IconButton size="sm" onClick={() => void handleNew()} aria-label="New prompt">
-                <Plus size={14} weight="regular" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </div>
-      )}
+          <div className="flex items-center gap-0.5">
 
-      {/* Tag filter — bordered pill so it reads as a control, not a list item */}
-      {availableTags.length > 0 && (
-        <div className="relative px-3 pt-3 pb-1 shrink-0" ref={tagDropdownRef}>
-          <button
-            onClick={() => setTagFilterOpen((v) => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
-              activeTags.length > 0
-                ? "border-[var(--color-stash)]/40 bg-[var(--color-stash)]/10 text-[var(--color-stash)]"
-                : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/40 hover:text-[var(--color-text)]"
-            }`}
-          >
-            <Tag size={12} />
-            <span>Tags</span>
-            {activeTags.length > 0 && (
-              <span className="font-medium">· {activeTags.length}</span>
-            )}
-          </button>
-
-          {tagFilterOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)]">
-                <MagnifyingGlass size={13} className="text-[var(--color-text-muted)] shrink-0" />
-                <input
-                  ref={tagInputRef}
-                  value={tagSearch}
-                  onChange={(e) => setTagSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Escape") { setTagFilterOpen(false); setTagSearch(""); }}}
-                  placeholder="Search tag…"
-                  className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none"
-                />
-              </div>
-              <div className="max-h-48 overflow-y-auto py-1">
-                {filteredTags.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-[var(--color-text-muted)]/60">No results</p>
-                ) : (
-                  filteredTags.map((tag) => {
-                    const active = activeTags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setActiveTags((prev) =>
-                            active ? prev.filter((t) => t !== tag) : [...prev, tag]
-                          );
-                        }}
-                        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
-                      >
-                        <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors ${active ? "bg-[var(--color-stash)] border-[var(--color-stash)]" : "border-[var(--color-border)]"}`}>
-                          {active && <Check size={9} weight="bold" className="text-white" />}
-                        </span>
-                        {tag}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-              {activeTags.length > 0 && (
-                <div className="border-t border-[var(--color-border)] px-3 py-1.5">
-                  <button
-                    onMouseDown={(e) => { e.preventDefault(); setActiveTags([]); }}
-                    className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+            {/* Tag filter */}
+            {availableTags.length > 0 && (
+              <div className="relative" ref={tagDropdownRef}>
+                <Tooltip label="Filter by tag">
+                  <IconButton
+                    size="sm"
+                    onClick={() => setTagFilterOpen((v) => !v)}
+                    aria-label="Filter by tag"
+                    className={activeTags.length > 0 ? "text-[var(--color-stash)] hover:text-[var(--color-stash)] bg-[var(--color-stash)]/10 hover:bg-[var(--color-stash)]/15" : ""}
                   >
-                    Clear filters
-                  </button>
+                    <Tag size={14} weight={activeTags.length > 0 ? "fill" : "regular"} />
+                  </IconButton>
+                </Tooltip>
+                {activeTags.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[var(--color-stash)] px-0.5 text-[9px] font-semibold text-white pointer-events-none">
+                    {activeTags.length}
+                  </span>
+                )}
+
+              {tagFilterOpen && (
+                <div className="absolute top-full right-0 mt-1.5 z-50 w-52 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)]">
+                    <MagnifyingGlass size={13} className="text-[var(--color-text-muted)] shrink-0" />
+                    <input
+                      ref={tagInputRef}
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Escape") { setTagFilterOpen(false); setTagSearch(""); }}}
+                      placeholder="Search tag…"
+                      className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]/50 focus:outline-none"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto py-1">
+                    {filteredTags.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-[var(--color-text-muted)]/60">No results</p>
+                    ) : (
+                      filteredTags.map((tag) => {
+                        const active = activeTags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setActiveTags((prev) =>
+                                active ? prev.filter((t) => t !== tag) : [...prev, tag]
+                              );
+                            }}
+                            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-bg-muted)] transition-colors"
+                          >
+                            <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors ${active ? "bg-[var(--color-stash)] border-[var(--color-stash)]" : "border-[var(--color-border)]"}`}>
+                              {active && <Check size={9} weight="bold" className="text-white" />}
+                            </span>
+                            {tag}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  {activeTags.length > 0 && (
+                    <div className="border-t border-[var(--color-border)] px-3 py-1.5">
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); setActiveTags([]); }}
+                        className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
+              </div>
+            )}
+
+            {/* New prompt */}
+            {showNewButton && (
+              <Tooltip label="New prompt (⌘N)">
+                <IconButton size="sm" onClick={() => void handleNew()} aria-label="New prompt">
+                  <Plus size={14} weight="regular" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </div>
         </div>
       )}
 
