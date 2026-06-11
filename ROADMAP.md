@@ -9,6 +9,7 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 - [ ] **Confirmation before deleting** — prompts and collections ask before destructive actions `improvement`
 - [ ] **Autosave when creating a collection** — no need to press Enter `improvement`
 - [ ] **Persistent tags** — tags no longer disappear when their last prompt is deleted `improvement`
+- [ ] **More readable ⌘⇧P hint** — individual key styling in onboarding hints `improvement`
 
 ## Pending
 

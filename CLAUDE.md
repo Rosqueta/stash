@@ -174,7 +174,7 @@ src/
       LibraryPanel.tsx            # Full-width panel replacing center+detail when Library is active
       TemplateModal.tsx           # Preview/import modal for a single template
     ui/
-      index.tsx                   # IconButton, Tooltip, ConfirmDialog
+      index.tsx                   # IconButton, Tooltip, ConfirmDialog, ShortcutKeys
   context/
     PromptsContext.tsx            # Dual context (data + actions)
     ThemeContext.tsx              # Light/dark/system theme, persisted to settings.json

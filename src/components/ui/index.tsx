@@ -103,6 +103,27 @@ export const Input = forwardRef<
 ));
 Input.displayName = "Input";
 
+// Keyboard shortcut rendered one key per <kbd> so symbols don't blend together
+export function ShortcutKeys({ keys, accent = false }: { keys: string[]; accent?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-[3px] align-middle">
+      {keys.map((k) => (
+        <kbd
+          key={k}
+          className={cn(
+            "inline-flex items-center justify-center rounded px-1 py-0.5 min-w-[18px] text-[10px] font-mono leading-none",
+            accent
+              ? "bg-[var(--color-stash)]/12 text-[var(--color-stash)] font-semibold"
+              : "bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]"
+          )}
+        >
+          {k}
+        </kbd>
+      ))}
+    </span>
+  );
+}
+
 // Destructive-action confirmation modal, portaled to document.body
 export function ConfirmDialog({
   open,

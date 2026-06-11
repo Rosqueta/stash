@@ -3,7 +3,7 @@ import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gea
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { useTheme } from "../../context/ThemeContext";
-import { ConfirmDialog, IconButton, Tooltip } from "../ui";
+import { ConfirmDialog, IconButton, ShortcutKeys, Tooltip } from "../ui";
 import { capture } from "../../services/analytics";
 import { PROMPT_DRAG_TYPE } from "../prompt-list/PromptCard";
 import { pickNextCollectionColor } from "../../services/collectionColors";
@@ -250,9 +250,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
       {m1Triggered && !hasSeenShortcutHint && (
         <div className="mx-3 mb-2 shrink-0 rounded-lg bg-[var(--color-bg-muted)] px-3 py-2.5 animate-slide-in-left">
           <p className="text-xs font-medium text-[var(--color-text)]">
-            Press{" "}
-            <span className="font-mono font-semibold text-[var(--color-stash)]">⌘⇧P</span>
-            {" "}from any app to open your prompts
+            Press <ShortcutKeys keys={["⌘", "⇧", "P"]} accent /> from any app to open your prompts
           </p>
           <p className="mt-1 text-[11px] leading-snug text-[var(--color-text-muted)]">
             Works everywhere except full-screen apps. Customizable in Settings.

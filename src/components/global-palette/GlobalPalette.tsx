@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { ShortcutKeys } from "../ui";
 import { capture } from "../../services/analytics";
 import { extractVariables } from "../../services/variables";
 import { WarmUp } from "../warm-up/WarmUp";
@@ -281,7 +282,9 @@ export function GlobalPalette() {
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 font-mono bg-[var(--color-bg-muted)]">Esc</kbd>
           Close
         </span>
-        <span className="ml-auto font-mono">⌘⇧P</span>
+        <span className="ml-auto">
+          <ShortcutKeys keys={["⌘", "⇧", "P"]} />
+        </span>
       </div>
     </div>
   );
