@@ -372,7 +372,7 @@ to force Cargo to relink and embed the new icon.
 
 ## Sidebar
 
-- **"New prompt"** button lives in the PromptList header (amber square `+`), NOT in the sidebar. ⌘N still works globally (handler lives in Sidebar since it's always mounted) and creates a prompt assigned to the active collection (not Pinned or Library views).
+- **"New prompt"** button lives in the PromptList header, NOT in the sidebar: view title on the left (`text-sm font-medium`), ghost `IconButton size="sm"` with a Plus on the right (same as the sidebar's new-collection button), "New prompt (⌘N)" tooltip, and a `border-b` under the header row. The whole header is hidden when the empty state is visible (it has its own button); the + button is also hidden in the Pinned view (prompts can't be created there). ⌘N still works globally (handler lives in Sidebar since it's always mounted) and creates a prompt assigned to the active collection (not Pinned or Library views). The tag filter below the header is a bordered pill (rounded-full) so it reads as a control, not a list item.
 - **"Search"** button: opens SearchSpotlight overlay (`⌘F`).
 - **"Settings"** button: opens Settings modal (`⌘,`). No border separator above it.
 - Quick views: **Prompts** (all), **Pinned**, **Library** — `activeCollectionId` is `null`, `"pinned"`, or `"library"` respectively.

@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { Tag, MagnifyingGlass, Check, Plus } from "@phosphor-icons/react";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
-import { Tooltip } from "../ui";
+import { IconButton, Tooltip } from "../ui";
 import { PromptCard } from "./PromptCard";
 import emptyStateImg from "../../assets/empty-state-prompts.png";
 import emptyStateImgDark from "../../assets/dark-empty-state-prompts.png";
@@ -106,6 +106,11 @@ export function PromptList() {
     selectPrompt(prompt.id);
   }, [activeCollectionId, savePrompt, selectPrompt]);
 
+  // The whole header disappears with the empty state (it has its own action);
+  // the + button is also hidden in Pinned (prompts can't be created there).
+  const showHeader = filtered.length > 0;
+  const showNewButton = activeCollectionId !== "pinned";
+
   const viewTitle =
     activeCollectionId === null
       ? "Prompts"
@@ -117,28 +122,28 @@ export function PromptList() {
     <div className="flex flex-col h-full w-[284px] border-r border-[var(--color-border)] shrink-0">
 
       {/* Header — view title + new prompt */}
-      <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1 shrink-0">
-        <span className="text-sm font-semibold text-[var(--color-text)] truncate">{viewTitle}</span>
-        <Tooltip label="New prompt (⌘N)">
-          <button
-            onClick={() => void handleNew()}
-            aria-label="New prompt"
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-stash)] text-white hover:opacity-90 active:opacity-75 active:scale-[0.9] transition-all duration-100"
-          >
-            <Plus size={14} weight="bold" />
-          </button>
-        </Tooltip>
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2 border-b border-[var(--color-border)] shrink-0">
+          <span className="text-sm font-medium text-[var(--color-text)] truncate">{viewTitle}</span>
+          {showNewButton && (
+            <Tooltip label="New prompt (⌘N)">
+              <IconButton size="sm" onClick={() => void handleNew()} aria-label="New prompt">
+                <Plus size={14} weight="regular" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </div>
+      )}
 
-      {/* Tag filter bar */}
+      {/* Tag filter — bordered pill so it reads as a control, not a list item */}
       {availableTags.length > 0 && (
-        <div className="relative px-2 pt-2 pb-1 shrink-0" ref={tagDropdownRef}>
+        <div className="relative px-3 pt-3 pb-1 shrink-0" ref={tagDropdownRef}>
           <button
             onClick={() => setTagFilterOpen((v) => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
               activeTags.length > 0
-                ? "bg-[var(--color-stash)]/10 text-[var(--color-stash)]"
-                : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]"
+                ? "border-[var(--color-stash)]/40 bg-[var(--color-stash)]/10 text-[var(--color-stash)]"
+                : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/40 hover:text-[var(--color-text)]"
             }`}
           >
             <Tag size={12} />
@@ -149,7 +154,7 @@ export function PromptList() {
           </button>
 
           {tagFilterOpen && (
-            <div className="absolute top-full left-2 mt-1 z-50 w-52 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg overflow-hidden">
+            <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] shadow-lg overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)]">
                 <MagnifyingGlass size={13} className="text-[var(--color-text-muted)] shrink-0" />
                 <input
@@ -202,7 +207,7 @@ export function PromptList() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-2 pt-1 pb-2 space-y-0.5">
+      <div className="flex-1 overflow-y-auto px-2 pt-2 pb-2 space-y-0.5">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
             <img src={emptyStateImg} alt="" className="w-28 h-28 object-contain dark:hidden" />
