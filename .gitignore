@@ -22,3 +22,9 @@ docs/Stash_PRD_v1.docx
 
 # Claude internal files
 .claude/
+
+# Apple code-signing certificate (belongs in the macOS keychain, not the repo)
+DeveloperIDG2CA.cer
+
+# PostHog CLI local config
+.posthog/
