@@ -166,7 +166,9 @@ export default function App() {
 
   useEffect(() => {
     if (isPalette) return;
-    initAnalytics();
+    invoke<{ internalUser?: boolean }>("load_settings")
+      .then((s) => initAnalytics(s.internalUser ?? false))
+      .catch(() => initAnalytics());
     capture("app_opened");
     const timer = setTimeout(() => void showUpdateToast(), 3000);
     return () => clearTimeout(timer);

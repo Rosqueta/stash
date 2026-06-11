@@ -75,6 +75,8 @@ pub struct AppSettings {
     pub has_seen_shortcut_hint: bool,
     #[serde(default)]
     pub has_seen_variable_hint: bool,
+    #[serde(default)]
+    pub internal_user: bool,
 }
 
 fn default_theme() -> String { "system".to_string() }
@@ -88,6 +90,7 @@ impl Default for AppSettings {
             data_dir: None,
             has_seen_shortcut_hint: false,
             has_seen_variable_hint: false,
+            internal_user: false,
         }
     }
 }
