@@ -7,6 +7,7 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 - [ ] **"New prompt" button in the prompt list header** — move it where users look for it `improvement`
 - [ ] **Drag & drop prompts into collections** — move prompts from the list to a sidebar collection `feature`
 - [ ] **Confirmation before deleting** — prompts and collections ask before destructive actions `improvement`
+- [ ] **Autosave when creating a collection** — no need to press Enter `improvement`
 
 ## Pending
 

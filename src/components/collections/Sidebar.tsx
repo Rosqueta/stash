@@ -80,9 +80,13 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleNew, onSearchOpen]);
 
+  // Guards against double-create when Enter and blur fire back to back
+  const creatingCollectionRef = useRef(false);
+
   const handleAddCollection = useCallback(async () => {
     const name = newCollectionName.trim();
-    if (!name) return;
+    if (!name || creatingCollectionRef.current) return;
+    creatingCollectionRef.current = true;
     try {
       const collection: Collection = {
         id: generateId(),
@@ -95,6 +99,8 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
       setIsAdding(false);
     } catch {
       // Error feedback is handled in context actions.
+    } finally {
+      creatingCollectionRef.current = false;
     }
   }, [newCollectionName, collections, saveCollection, setActiveCollection]);
 
@@ -206,8 +212,13 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
                 }
               }}
               onBlur={() => {
-                setIsAdding(false);
-                setNewCollectionName("");
+                // Autosave on blur, same expectation as prompt creation
+                if (newCollectionName.trim()) {
+                  void handleAddCollection();
+                } else {
+                  setIsAdding(false);
+                  setNewCollectionName("");
+                }
               }}
             />
           </div>
