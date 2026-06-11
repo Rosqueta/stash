@@ -4,7 +4,7 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 
 ## In progress
 
-Nothing in progress right now.
+- [ ] **"New prompt" button in the prompt list header** — move it where users look for it `improvement`
 
 ## Pending
 

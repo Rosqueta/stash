@@ -154,7 +154,7 @@ src/
     search/
       SearchSpotlight.tsx         # ⌘F search overlay
     prompt-list/
-      PromptList.tsx              # Center panel — filtered prompt list + empty state
+      PromptList.tsx              # Center panel — header (view title + New prompt), filtered list, empty state
       PromptCard.tsx              # Single prompt row (title + optional pin)
     prompt-detail/
       PromptDetail.tsx            # Right panel — title, content, notes, actions
@@ -369,7 +369,7 @@ to force Cargo to relink and embed the new icon.
 
 ## Sidebar
 
-- **"New prompt"** button: amber (`--color-stash`), creates prompt assigned to active collection (not Pinned or Library views).
+- **"New prompt"** button lives in the PromptList header (amber square `+`), NOT in the sidebar. ⌘N still works globally (handler lives in Sidebar since it's always mounted) and creates a prompt assigned to the active collection (not Pinned or Library views).
 - **"Search"** button: opens SearchSpotlight overlay (`⌘F`).
 - **"Settings"** button: opens Settings modal (`⌘,`). No border separator above it.
 - Quick views: **Prompts** (all), **Pinned**, **Library** — `activeCollectionId` is `null`, `"pinned"`, or `"library"` respectively.

@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
-import { Tag, MagnifyingGlass, Check } from "@phosphor-icons/react";
+import { Tag, MagnifyingGlass, Check, Plus } from "@phosphor-icons/react";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { Tooltip } from "../ui";
 import { PromptCard } from "./PromptCard";
 import emptyStateImg from "../../assets/empty-state-prompts.png";
 import emptyStateImgDark from "../../assets/dark-empty-state-prompts.png";
@@ -25,7 +26,7 @@ function createNewPrompt(collectionId: string | null = null): Prompt {
 }
 
 export function PromptList() {
-  const { prompts, selectedId, activeCollectionId } = usePromptsData();
+  const { prompts, selectedId, activeCollectionId, collections } = usePromptsData();
   const { selectPrompt, savePrompt } = usePromptsActions();
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagFilterOpen, setTagFilterOpen] = useState(false);
@@ -105,8 +106,29 @@ export function PromptList() {
     selectPrompt(prompt.id);
   }, [activeCollectionId, savePrompt, selectPrompt]);
 
+  const viewTitle =
+    activeCollectionId === null
+      ? "Prompts"
+      : activeCollectionId === "pinned"
+        ? "Pinned"
+        : collections.find((c) => c.id === activeCollectionId)?.name ?? "Prompts";
+
   return (
     <div className="flex flex-col h-full w-[284px] border-r border-[var(--color-border)] shrink-0">
+
+      {/* Header — view title + new prompt */}
+      <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1 shrink-0">
+        <span className="text-sm font-semibold text-[var(--color-text)] truncate">{viewTitle}</span>
+        <Tooltip label="New prompt (⌘N)">
+          <button
+            onClick={() => void handleNew()}
+            aria-label="New prompt"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-stash)] text-white hover:opacity-90 active:opacity-75 active:scale-[0.9] transition-all duration-100"
+          >
+            <Plus size={14} weight="bold" />
+          </button>
+        </Tooltip>
+      </div>
 
       {/* Tag filter bar */}
       {availableTags.length > 0 && (
