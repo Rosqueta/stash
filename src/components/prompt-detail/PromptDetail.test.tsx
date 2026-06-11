@@ -50,6 +50,9 @@ vi.mock("sonner", () => {
 vi.mock("../../services/storage", () => ({
   listPrompts: vi.fn(async () => mockPrompts.map(clonePrompt)),
   listCollections: vi.fn(async () => mockCollections.map((collection) => ({ ...collection }))),
+  listTags: vi.fn(async () =>
+    Array.from(new Set(mockPrompts.flatMap((p) => p.tags))).sort()
+  ),
   savePrompt: vi.fn(async (prompt: Prompt) => {
     const next = clonePrompt(prompt);
     const index = mockPrompts.findIndex((item) => item.id === prompt.id);

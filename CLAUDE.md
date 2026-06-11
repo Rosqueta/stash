@@ -98,7 +98,10 @@ interface AppSettings {
 prompt that appears when an app touches `~/Documents` unprompted. The user can change this
 path from Settings > Data (via the system folder picker, which grants access without a
 prompt); the custom path is persisted as `dataDir`
-in `settings.json`. Structure: `{ prompts: Prompt[], collections: Collection[], version: number }`.
+in `settings.json`. Structure: `{ prompts: Prompt[], collections: Collection[], tags: string[], version: number }`.
+Tags persist independently of prompts: deleting the last prompt that uses a tag does NOT
+delete the tag. The `tags` field has `#[serde(default)]` for backwards compat; `list_tags`
+merges stored tags with any found on prompts.
 Settings stored separately at `{APP_DATA}/settings.json` (always fixed location).
 Never store to localStorage or sessionStorage.
 

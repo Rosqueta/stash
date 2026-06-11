@@ -19,6 +19,7 @@ let mockPrompts: Prompt[] = [];
 vi.mock("../../services/storage", () => ({
   listPrompts:     vi.fn(async () => mockPrompts.map((p) => ({ ...p }))),
   listCollections: vi.fn(async () => []),
+  listTags:        vi.fn(async () => []),
   savePrompt:      vi.fn(async () => undefined),
   deletePrompt:    vi.fn(async () => undefined),
   saveCollection:  vi.fn(async () => undefined),

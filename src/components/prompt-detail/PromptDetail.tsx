@@ -18,7 +18,7 @@ import { OnboardingTour } from "../onboarding/OnboardingTour";
 import type { Prompt } from "../../types/prompt";
 
 export function PromptDetail() {
-  const { prompts, selectedId, collections } = usePromptsData();
+  const { prompts, selectedId, collections, tags: globalTags } = usePromptsData();
   const { savePrompt, deletePrompt, copyPrompt, renameTag, deleteTag } = usePromptsActions();
 
   const prompt = prompts.find((p) => p.id === selectedId) ?? null;
@@ -163,13 +163,6 @@ export function PromptDetail() {
     setIsPinned(next);
     scheduleSave({ isPinned: next });
   }, [isPinned, scheduleSave]);
-
-  // Global tag pool: union of all tags across all prompts
-  const globalTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of prompts) for (const t of p.tags) set.add(t);
-    return Array.from(set).sort();
-  }, [prompts]);
 
   const handleToggleTag = useCallback((tag: string) => {
     const next = tags.includes(tag)

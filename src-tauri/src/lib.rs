@@ -57,7 +57,19 @@ pub struct Collection {
 pub struct StashData {
     pub prompts: Vec<Prompt>,
     pub collections: Vec<Collection>,
+    // Tags live independently of prompts: they persist even when no prompt uses them.
+    // Older files lack this field; list_tags merges in tags found on prompts.
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub version: u32,
+}
+
+fn merge_tags(existing: &mut Vec<String>, new_tags: &[String]) {
+    for t in new_tags {
+        if !existing.iter().any(|e| e == t) {
+            existing.push(t.clone());
+        }
+    }
 }
 
 // ── Settings model ────────────────────────────────────────────────────────────
@@ -289,6 +301,7 @@ async fn list_prompts(app: AppHandle) -> Result<Vec<Prompt>, String> {
 #[tauri::command]
 async fn save_prompt(app: AppHandle, prompt: Prompt) -> Result<(), String> {
     let mut data = read_data(&app).await?;
+    merge_tags(&mut data.tags, &prompt.tags);
     if let Some(idx) = data.prompts.iter().position(|p| p.id == prompt.id) {
         data.prompts[idx] = prompt;
     } else {
@@ -492,6 +505,17 @@ async fn change_data_folder(app: AppHandle) -> Result<Option<String>, String> {
 // ── Tag commands ──────────────────────────────────────────────────────────────
 
 #[tauri::command]
+async fn list_tags(app: AppHandle) -> Result<Vec<String>, String> {
+    let data = read_data(&app).await?;
+    let mut tags = data.tags.clone();
+    for prompt in &data.prompts {
+        merge_tags(&mut tags, &prompt.tags);
+    }
+    tags.sort();
+    Ok(tags)
+}
+
+#[tauri::command]
 async fn rename_tag(app: AppHandle, old_name: String, new_name: String) -> Result<Vec<Prompt>, String> {
     let trimmed = new_name.trim().to_string();
     if trimmed.is_empty() || trimmed == old_name {
@@ -510,6 +534,8 @@ async fn rename_tag(app: AppHandle, old_name: String, new_name: String) -> Resul
             prompt.tags.retain(|t| seen.insert(t.clone()));
         }
     }
+    data.tags.retain(|t| t != &old_name);
+    merge_tags(&mut data.tags, std::slice::from_ref(&trimmed));
     write_data(&app, &data).await?;
     Ok(data.prompts)
 }
@@ -517,6 +543,7 @@ async fn rename_tag(app: AppHandle, old_name: String, new_name: String) -> Resul
 #[tauri::command]
 async fn delete_tag(app: AppHandle, name: String) -> Result<Vec<Prompt>, String> {
     let mut data = read_data(&app).await?;
+    data.tags.retain(|t| t != &name);
     for prompt in data.prompts.iter_mut() {
         prompt.tags.retain(|t| t != &name);
     }
@@ -601,6 +628,7 @@ pub fn run() {
             show_in_finder,
             open_url,
             change_data_folder,
+            list_tags,
             rename_tag,
             delete_tag,
             get_templates_cache,

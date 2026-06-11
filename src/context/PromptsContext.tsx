@@ -19,6 +19,7 @@ import { showWindow } from "../services/storage";
 interface PromptsData {
   prompts: Prompt[];
   collections: Collection[];
+  tags: string[];
   selectedId: string | null;
   searchQuery: string;
   activeCollectionId: string | null;
@@ -69,6 +70,7 @@ function getNextId(
 export function PromptsProvider({ children }: { children: ReactNode }) {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQueryState] = useState("");
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
@@ -84,12 +86,14 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
 
   const loadData = useCallback(async (showMainWindow = false) => {
     try {
-      const [p, c] = await Promise.all([
+      const [p, c, t] = await Promise.all([
         storage.listPrompts(),
         storage.listCollections(),
+        storage.listTags(),
       ]);
       setPrompts(p);
       setCollections(c);
+      setTags(t);
     } catch (e) {
       toast.error("Failed to load data");
       console.error(e);
@@ -122,6 +126,11 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
         const next = [...prev];
         next[idx] = prompt;
         return next;
+      });
+      // Mirror the backend: new tags on a prompt join the persistent pool
+      setTags((prev) => {
+        const missing = prompt.tags.filter((t) => !prev.includes(t));
+        return missing.length === 0 ? prev : [...prev, ...missing].sort();
       });
       if (!existing) {
         capture("prompt_created", {
@@ -186,11 +195,17 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     if (!trimmed || trimmed === oldName) return;
     const updatedPrompts = await storage.renameTag(oldName, trimmed);
     setPrompts(updatedPrompts);
+    setTags((prev) => {
+      const next = prev.filter((t) => t !== oldName);
+      if (!next.includes(trimmed)) next.push(trimmed);
+      return next.sort();
+    });
   }, []);
 
   const deleteTag = useCallback(async (name: string) => {
     const updatedPrompts = await storage.deleteTag(name);
     setPrompts(updatedPrompts);
+    setTags((prev) => prev.filter((t) => t !== name));
     toastSuccess(`Tag "${name}" deleted`);
   }, []);
 
@@ -225,12 +240,13 @@ export function PromptsProvider({ children }: { children: ReactNode }) {
     () => ({
       prompts,
       collections,
+      tags,
       selectedId,
       searchQuery,
       activeCollectionId,
       isLoading,
     }),
-    [prompts, collections, selectedId, searchQuery, activeCollectionId, isLoading]
+    [prompts, collections, tags, selectedId, searchQuery, activeCollectionId, isLoading]
   );
 
   const actions = useMemo<PromptsActions>(

@@ -30,6 +30,9 @@ let mockCollections: Collection[] = [];
 vi.mock("../services/storage", () => ({
   listPrompts:     vi.fn(async () => mockPrompts.map((p) => ({ ...p }))),
   listCollections: vi.fn(async () => mockCollections.map((c) => ({ ...c }))),
+  listTags:        vi.fn(async () =>
+    Array.from(new Set(mockPrompts.flatMap((p) => p.tags))).sort()
+  ),
   savePrompt: vi.fn(async (p: Prompt) => {
     const idx = mockPrompts.findIndex((x) => x.id === p.id);
     if (idx === -1) mockPrompts.unshift({ ...p });
