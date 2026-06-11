@@ -3,7 +3,7 @@ import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gea
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { useTheme } from "../../context/ThemeContext";
-import { IconButton, Tooltip } from "../ui";
+import { ConfirmDialog, IconButton, Tooltip } from "../ui";
 import { capture } from "../../services/analytics";
 import { PROMPT_DRAG_TYPE } from "../prompt-list/PromptCard";
 import { pickNextCollectionColor } from "../../services/collectionColors";
@@ -40,6 +40,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
   const [isAdding, setIsAdding] = useState(false);
   const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [collectionPendingDelete, setCollectionPendingDelete] = useState<Collection | null>(null);
   const newCollectionInputRef = useRef<HTMLInputElement>(null);
   const [m1Triggered, setM1Triggered] = useState(false);
 
@@ -132,6 +133,10 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
     }
   }, [editingName, saveCollection, cancelEditingCollection]);
 
+  const pendingDeleteCount = collectionPendingDelete
+    ? prompts.filter((p) => p.collectionId === collectionPendingDelete.id).length
+    : 0;
+
   return (
     <aside className="flex flex-col h-full w-[220px] border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)] shrink-0">
       {/* Action buttons */}
@@ -220,7 +225,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             onSelect={() => {
               if (editingCollectionId !== c.id) setActiveCollection(c.id);
             }}
-            onDelete={() => deleteCollection(c.id)}
+            onDelete={() => setCollectionPendingDelete(c)}
             onStartEdit={() => startEditingCollection(c)}
             onSaveEdit={() => void saveEditedCollection(c)}
             onCancelEdit={cancelEditingCollection}
@@ -263,6 +268,29 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
           <kbd className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">⌘,</kbd>
         </button>
       </div>
+
+      {/* Delete collection confirm modal */}
+      <ConfirmDialog
+        open={!!collectionPendingDelete}
+        title="Delete collection"
+        description={
+          pendingDeleteCount > 0 ? (
+            <>
+              &ldquo;{collectionPendingDelete?.name}&rdquo; will be deleted. Its{" "}
+              {pendingDeleteCount} {pendingDeleteCount === 1 ? "prompt" : "prompts"} will be
+              kept without a collection.
+            </>
+          ) : (
+            <>Are you sure you want to delete &ldquo;{collectionPendingDelete?.name}&rdquo;?</>
+          )
+        }
+        onCancel={() => setCollectionPendingDelete(null)}
+        onConfirm={() => {
+          const id = collectionPendingDelete?.id;
+          setCollectionPendingDelete(null);
+          if (id) void deleteCollection(id);
+        }}
+      />
     </aside>
   );
 }

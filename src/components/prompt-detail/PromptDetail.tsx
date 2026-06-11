@@ -6,14 +6,14 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { PushPin, Copy, Trash, Folder, CaretDown, CaretUp, Note, Notepad, MagnifyingGlass, Plus, Check, PencilSimple, X } from "@phosphor-icons/react";
+import { PushPin, Copy, Trash, Folder, CaretDown, CaretUp, Note, Notepad, MagnifyingGlass, Plus, Check, PencilSimple } from "@phosphor-icons/react";
 import { VariableEditor } from "./VariableEditor";
 import { WarmUp } from "../warm-up/WarmUp";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { capture } from "../../services/analytics";
 import { extractVariables } from "../../services/variables";
-import { IconButton, Tooltip } from "../ui";
+import { ConfirmDialog, IconButton, Tooltip } from "../ui";
 import { OnboardingTour } from "../onboarding/OnboardingTour";
 import type { Prompt } from "../../types/prompt";
 
@@ -32,6 +32,7 @@ export function PromptDetail() {
   const [isPinned, setIsPinned] = useState(false);
   const [warmUpOpen, setWarmUpOpen] = useState(false);
   const [tagPendingDelete, setTagPendingDelete] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(true);
 
   // Reset notes to expanded default whenever the selected prompt changes,
@@ -288,7 +289,7 @@ export function PromptDetail() {
             </Tooltip>
             <Tooltip label="Delete prompt">
               <IconButton
-                onClick={() => deletePrompt(prompt.id)}
+                onClick={() => setDeleteConfirmOpen(true)}
                 className="hover:text-red-500"
               >
                 <Trash size={18} weight="regular" />
@@ -395,53 +396,32 @@ export function PromptDetail() {
       )}
 
       {/* Delete tag confirm modal */}
-      {tagPendingDelete && createPortal(
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
-          onClick={(e) => { if (e.target === e.currentTarget) setTagPendingDelete(null); }}
-        >
-          <div className="relative w-full max-w-[330px] mx-6 rounded-3xl bg-[var(--color-bg)] border border-[var(--color-border)] shadow-2xl p-6">
-            <IconButton
-              onClick={() => setTagPendingDelete(null)}
-              aria-label="Close modal"
-              className="absolute right-4 top-4"
-            >
-              <X size={14} weight="bold" />
-            </IconButton>
-            <div className="mx-auto mb-4 flex items-center justify-center">
-              <Trash size={34} weight="regular" className="text-red-400" />
-            </div>
-            <h3 className="text-center text-sm font-semibold text-[var(--color-text)]">
-              Delete tag
-            </h3>
-            <p className="mt-2 text-center text-sm text-[var(--color-text-muted)] leading-relaxed">
-              Are you sure you want to delete?
-            </p>
-            <div className="mt-7 grid grid-cols-2 gap-4">
-              <button
-                onClick={() => setTagPendingDelete(null)}
-                className="w-full rounded-lg px-3 py-2 text-sm font-medium bg-[var(--color-bg-muted)] text-[var(--color-text)] hover:bg-[var(--color-bg-emphasis)] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const name = tagPendingDelete;
-                  if (!name) return;
-                  await flushSave();
-                  await deleteTag(name);
-                  setTags((prev) => prev.filter((t) => t !== name));
-                  setTagPendingDelete(null);
-                }}
-                className="w-full rounded-lg px-3 py-2 text-sm font-medium bg-red-400 text-white hover:bg-red-500 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ConfirmDialog
+        open={!!tagPendingDelete}
+        title="Delete tag"
+        description={<>The tag &ldquo;{tagPendingDelete}&rdquo; will be removed from all prompts.</>}
+        onCancel={() => setTagPendingDelete(null)}
+        onConfirm={async () => {
+          const name = tagPendingDelete;
+          if (!name) return;
+          await flushSave();
+          await deleteTag(name);
+          setTags((prev) => prev.filter((t) => t !== name));
+          setTagPendingDelete(null);
+        }}
+      />
+
+      {/* Delete prompt confirm modal */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Delete prompt"
+        description={<>Are you sure you want to delete &ldquo;{title.trim() || "Untitled"}&rdquo;? This cannot be undone.</>}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          setDeleteConfirmOpen(false);
+          void deletePrompt(prompt.id);
+        }}
+      />
 
       {/* Onboarding floating tour */}
       <OnboardingTour content={content} />

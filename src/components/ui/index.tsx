@@ -1,5 +1,7 @@
 import { forwardRef, useEffect, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { Trash, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 
@@ -100,3 +102,75 @@ export const Input = forwardRef<
   />
 ));
 Input.displayName = "Input";
+
+// Destructive-action confirmation modal, portaled to document.body
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = "Delete",
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  description: ReactNode;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onCancel();
+      }
+    }
+    window.addEventListener("keydown", handleKey, true);
+    return () => window.removeEventListener("keydown", handleKey, true);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="relative w-full max-w-[330px] mx-6 rounded-3xl bg-[var(--color-bg)] border border-[var(--color-border)] shadow-2xl p-6">
+        <IconButton
+          onClick={onCancel}
+          aria-label="Close modal"
+          className="absolute right-4 top-4"
+        >
+          <X size={14} weight="bold" />
+        </IconButton>
+        <div className="mx-auto mb-4 flex items-center justify-center">
+          <Trash size={34} weight="regular" className="text-red-400" />
+        </div>
+        <h3 className="text-center text-sm font-semibold text-[var(--color-text)]">
+          {title}
+        </h3>
+        <p className="mt-2 text-center text-sm text-[var(--color-text-muted)] leading-relaxed">
+          {description}
+        </p>
+        <div className="mt-7 grid grid-cols-2 gap-4">
+          <button
+            onClick={onCancel}
+            className="w-full rounded-lg px-3 py-2 text-sm font-medium bg-[var(--color-bg-muted)] text-[var(--color-text)] hover:bg-[var(--color-bg-emphasis)] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="w-full rounded-lg px-3 py-2 text-sm font-medium bg-red-400 text-white hover:bg-red-500 transition-colors"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}

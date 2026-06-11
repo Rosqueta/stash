@@ -171,7 +171,7 @@ src/
       LibraryPanel.tsx            # Full-width panel replacing center+detail when Library is active
       TemplateModal.tsx           # Preview/import modal for a single template
     ui/
-      index.tsx                   # IconButton, Tooltip (Radix-based)
+      index.tsx                   # IconButton, Tooltip, ConfirmDialog
   context/
     PromptsContext.tsx            # Dual context (data + actions)
     ThemeContext.tsx              # Light/dark/system theme, persisted to settings.json
@@ -376,6 +376,7 @@ to force Cargo to relink and embed the new icon.
 - Collections: inline creation (folder icon + transparent input at top of list), saved on Enter, dismissed on blur/Escape.
 - New collections prepend to the list (not append).
 - Collections accept drops of prompt cards (native HTML5 drag & drop, type `application/x-stash-prompt`) to move prompts between collections. Drop target highlights with an amber inset ring.
+- Deleting a collection asks for confirmation (`ConfirmDialog`); its prompts are kept without a collection. Deleting a prompt or a tag also confirms first.
 
 ## SearchSpotlight (⌘F)
 
