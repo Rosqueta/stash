@@ -5,6 +5,7 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 ## In progress
 
 - [ ] **"New prompt" button in the prompt list header** — move it where users look for it `improvement`
+- [ ] **Drag & drop prompts into collections** — move prompts from the list to a sidebar collection `feature`
 
 ## Pending
 

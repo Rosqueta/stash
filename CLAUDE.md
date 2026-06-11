@@ -375,6 +375,7 @@ to force Cargo to relink and embed the new icon.
 - Quick views: **Prompts** (all), **Pinned**, **Library** — `activeCollectionId` is `null`, `"pinned"`, or `"library"` respectively.
 - Collections: inline creation (folder icon + transparent input at top of list), saved on Enter, dismissed on blur/Escape.
 - New collections prepend to the list (not append).
+- Collections accept drops of prompt cards (native HTML5 drag & drop, type `application/x-stash-prompt`) to move prompts between collections. Drop target highlights with an amber inset ring.
 
 ## SearchSpotlight (⌘F)
 

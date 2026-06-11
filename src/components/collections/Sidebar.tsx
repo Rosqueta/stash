@@ -4,6 +4,8 @@ import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { useTheme } from "../../context/ThemeContext";
 import { IconButton, Tooltip } from "../ui";
+import { capture } from "../../services/analytics";
+import { PROMPT_DRAG_TYPE } from "../prompt-list/PromptCard";
 import { pickNextCollectionColor } from "../../services/collectionColors";
 import type { Collection, Prompt } from "../../types/prompt";
 
@@ -94,6 +96,17 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
       // Error feedback is handled in context actions.
     }
   }, [newCollectionName, collections, saveCollection, setActiveCollection]);
+
+  const handleDropPrompt = useCallback(async (promptId: string, collectionId: string) => {
+    const prompt = prompts.find((p) => p.id === promptId);
+    if (!prompt || prompt.collectionId === collectionId) return;
+    try {
+      await savePrompt({ ...prompt, collectionId, updatedAt: Date.now() });
+      capture("prompt_moved", { source: "drag_drop" });
+    } catch {
+      // Error feedback is handled in context actions.
+    }
+  }, [prompts, savePrompt]);
 
   const startEditingCollection = useCallback((collection: Collection) => {
     setEditingCollectionId(collection.id);
@@ -211,6 +224,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             onStartEdit={() => startEditingCollection(c)}
             onSaveEdit={() => void saveEditedCollection(c)}
             onCancelEdit={cancelEditingCollection}
+            onDropPrompt={(promptId) => void handleDropPrompt(promptId, c.id)}
           />
         ))}
         </div>
@@ -291,6 +305,7 @@ function CollectionItem({
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
+  onDropPrompt,
 }: {
   collection: Collection;
   active: boolean;
@@ -302,8 +317,10 @@ function CollectionItem({
   onStartEdit: () => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
+  onDropPrompt: (promptId: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isDropTarget, setIsDropTarget] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -318,10 +335,25 @@ function CollectionItem({
         "group flex w-full items-center justify-between rounded-md px-2 py-1 text-sm transition-colors cursor-pointer",
         active
           ? "bg-[var(--color-bg-muted)] text-[var(--color-text)]"
-          : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]"
+          : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]",
+        isDropTarget && "bg-[var(--color-bg-emphasis)] text-[var(--color-text)] ring-1 ring-inset ring-[var(--color-stash)]"
       )}
       onClick={onSelect}
       onDoubleClick={onStartEdit}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(PROMPT_DRAG_TYPE)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          setIsDropTarget(true);
+        }
+      }}
+      onDragLeave={() => setIsDropTarget(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDropTarget(false);
+        const promptId = e.dataTransfer.getData(PROMPT_DRAG_TYPE);
+        if (promptId) onDropPrompt(promptId);
+      }}
     >
       <div className="flex items-center gap-2 min-w-0">
         {active

@@ -11,6 +11,7 @@ import { VariableEditor } from "./VariableEditor";
 import { WarmUp } from "../warm-up/WarmUp";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
+import { capture } from "../../services/analytics";
 import { extractVariables } from "../../services/variables";
 import { IconButton, Tooltip } from "../ui";
 import { OnboardingTour } from "../onboarding/OnboardingTour";
@@ -189,6 +190,7 @@ export function PromptDetail() {
   const handleCollectionChange = useCallback(
     (collectionId: string | null) => {
       scheduleSave({ collectionId });
+      capture("prompt_moved", { source: "detail_dropdown" });
     },
     [scheduleSave]
   );

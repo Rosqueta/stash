@@ -3,6 +3,8 @@ import { PushPin } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import type { Prompt } from "../../types/prompt";
 
+export const PROMPT_DRAG_TYPE = "application/x-stash-prompt";
+
 interface PromptCardProps {
   prompt: Prompt;
   selected: boolean;
@@ -18,6 +20,11 @@ export const PromptCard = memo(forwardRef<HTMLDivElement, PromptCardProps>(funct
     <div
       ref={ref}
       onClick={onClick}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(PROMPT_DRAG_TYPE, prompt.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
       className={cn(
         "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors",
         selected
