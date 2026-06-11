@@ -361,9 +361,14 @@ In `src-tauri/tauri.conf.json` — main window config:
   "height": 720,
   "minWidth": 600,
   "minHeight": 400,
-  "visible": false
+  "visible": false,
+  "dragDropEnabled": false
 }
 ```
+
+`dragDropEnabled: false` is required: Tauri's native file-drop handler intercepts drag
+events in WKWebView and silently breaks HTML5 drag & drop inside the page (used to drag
+prompts into collections). Don't re-enable it without an alternative for prompt drag & drop.
 
 `visible: false` on launch — window shown via `show_window` Tauri command after data loads.
 
@@ -378,7 +383,7 @@ to force Cargo to relink and embed the new icon.
 - Quick views: **Prompts** (all), **Pinned**, **Library** — `activeCollectionId` is `null`, `"pinned"`, or `"library"` respectively.
 - Collections: inline creation (folder icon + transparent input at top of list), autosaved on Enter or blur (blur with empty name dismisses; Escape always dismisses).
 - New collections prepend to the list (not append).
-- Collections accept drops of prompt cards (native HTML5 drag & drop, type `application/x-stash-prompt`) to move prompts between collections. Drop target highlights with an amber inset ring.
+- Collections accept drops of prompt cards (native HTML5 drag & drop, type `application/x-stash-prompt`) to move prompts between collections. Drop target gets a soft amber tint (`bg-stash/10`, no ring); `onDragLeave` ignores events from child elements to avoid flicker. The source card dims to 40% while dragging. The drag image is a custom chip with the prompt title (`setDragGhost` in PromptCard — no box-shadow, WebKit clips it). A `toastSuccess` confirms the move. `AppShell` normalizes `dropEffect` to `"move"` window-wide so macOS doesn't show the green copy (+) badge. Requires `dragDropEnabled: false` on the main window (see macOS Native Details).
 - Deleting a collection asks for confirmation (`ConfirmDialog`); its prompts are kept without a collection. Deleting a prompt or a tag also confirms first.
 
 ## SearchSpotlight (⌘F)

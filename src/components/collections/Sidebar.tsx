@@ -3,7 +3,7 @@ import { PushPin, Notepad, Plus, Trash, MagnifyingGlass, Folder, FolderOpen, Gea
 import { cn } from "../../lib/utils";
 import { usePromptsData, usePromptsActions } from "../../context/PromptsContext";
 import { useTheme } from "../../context/ThemeContext";
-import { ConfirmDialog, IconButton, ShortcutKeys, Tooltip } from "../ui";
+import { ConfirmDialog, IconButton, ShortcutKeys, Tooltip, toastSuccess } from "../ui";
 import { capture } from "../../services/analytics";
 import { PROMPT_DRAG_TYPE } from "../prompt-list/PromptCard";
 import { pickNextCollectionColor } from "../../services/collectionColors";
@@ -104,11 +104,12 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
     }
   }, [newCollectionName, collections, saveCollection, setActiveCollection]);
 
-  const handleDropPrompt = useCallback(async (promptId: string, collectionId: string) => {
+  const handleDropPrompt = useCallback(async (promptId: string, collection: Collection) => {
     const prompt = prompts.find((p) => p.id === promptId);
-    if (!prompt || prompt.collectionId === collectionId) return;
+    if (!prompt || prompt.collectionId === collection.id) return;
     try {
-      await savePrompt({ ...prompt, collectionId, updatedAt: Date.now() });
+      await savePrompt({ ...prompt, collectionId: collection.id, updatedAt: Date.now() });
+      toastSuccess(`Moved to "${collection.name}"`);
       capture("prompt_moved", { source: "drag_drop" });
     } catch {
       // Error feedback is handled in context actions.
@@ -240,7 +241,7 @@ export function Sidebar({ onSearchOpen, onSettingsOpen }: { onSearchOpen: () => 
             onStartEdit={() => startEditingCollection(c)}
             onSaveEdit={() => void saveEditedCollection(c)}
             onCancelEdit={cancelEditingCollection}
-            onDropPrompt={(promptId) => void handleDropPrompt(promptId, c.id)}
+            onDropPrompt={(promptId) => void handleDropPrompt(promptId, c)}
           />
         ))}
         </div>
@@ -373,7 +374,7 @@ function CollectionItem({
         active
           ? "bg-[var(--color-bg-muted)] text-[var(--color-text)]"
           : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]",
-        isDropTarget && "bg-[var(--color-bg-emphasis)] text-[var(--color-text)] ring-1 ring-inset ring-[var(--color-stash)]"
+        isDropTarget && "bg-[var(--color-stash)]/10 text-[var(--color-text)]"
       )}
       onClick={onSelect}
       onDoubleClick={onStartEdit}
@@ -384,7 +385,12 @@ function CollectionItem({
           setIsDropTarget(true);
         }
       }}
-      onDragLeave={() => setIsDropTarget(false)}
+      onDragLeave={(e) => {
+        // Ignore dragleave fired by moving over child elements (icon, label) —
+        // without this the highlight flickers while hovering the row.
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDropTarget(false);
+      }}
       onDrop={(e) => {
         e.preventDefault();
         setIsDropTarget(false);

@@ -10,6 +10,7 @@ import { PromptsProvider } from "./context/PromptsContext";
 import { initAnalytics, capture } from "./services/analytics";
 import { Sidebar } from "./components/collections/Sidebar";
 import { PromptList } from "./components/prompt-list/PromptList";
+import { PROMPT_DRAG_TYPE } from "./components/prompt-list/PromptCard";
 import { PromptDetail } from "./components/prompt-detail/PromptDetail";
 import { LibraryPanel } from "./components/library/LibraryPanel";
 import { SearchSpotlight } from "./components/search/SearchSpotlight";
@@ -56,7 +57,20 @@ function AppShell() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[var(--color-bg)]">
+    <div
+      className="flex flex-col h-full overflow-hidden bg-[var(--color-bg)]"
+      // Declare "move" for prompt drags across the whole window so macOS
+      // doesn't show the green copy (+) badge while dragging.
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(PROMPT_DRAG_TYPE)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer.types.includes(PROMPT_DRAG_TYPE)) e.preventDefault();
+      }}
+    >
       <div
         data-tauri-drag-region
         className="h-[52px] shrink-0 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]"
