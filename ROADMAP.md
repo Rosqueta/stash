@@ -4,12 +4,7 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 
 ## In progress
 
-- [ ] **"New prompt" button in the prompt list header** — move it where users look for it `improvement`
-- [ ] **Drag & drop prompts into collections** — move prompts from the list to a sidebar collection `feature`
-- [ ] **Confirmation before deleting** — prompts and collections ask before destructive actions `improvement`
-- [ ] **Autosave when creating a collection** — no need to press Enter `improvement`
-- [ ] **Persistent tags** — tags no longer disappear when their last prompt is deleted `improvement`
-- [ ] **More readable ⌘⇧P hint** — individual key styling in onboarding hints `improvement`
+Nothing in progress right now.
 
 ## Pending
 
@@ -17,6 +12,13 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 
 ## Done
 
+- [x] **Quick actions menu on prompt cards** — pin, copy, move or delete from the list, no need to open the prompt `feature` · v0.1.3
+- [x] **Drag & drop prompts into collections** — move prompts from the list to a sidebar collection `feature` · v0.1.3
+- [x] **"New prompt" button in the prompt list header** — move it where users look for it, with the tag filter alongside `improvement` · v0.1.3
+- [x] **Confirmation before deleting** — prompts and collections ask before destructive actions `improvement` · v0.1.3
+- [x] **Autosave when creating a collection** — no need to press Enter `improvement` · v0.1.3
+- [x] **Persistent tags** — tags no longer disappear when their last prompt is deleted `improvement` · v0.1.3
+- [x] **More readable ⌘⇧P hint** — individual key styling in onboarding hints `improvement` · v0.1.3
 - [x] **PostHog analytics** — anonymous usage tracking to understand how the app is used `improvement` · v0.1.2
 - [x] **Global shortcut configurable** — change ⌘⇧P from Settings `improvement` · v0.1.1
 - [x] **Data directory configurable** — change where stash.json is stored from Settings `improvement` · v0.1.1
