@@ -35,6 +35,7 @@ npm run tauri icon <file.png>  # Regenerate all icon sizes from a 1024x1024 PNG
 - Sonner (toasts)
 - @tauri-apps/plugin-clipboard-manager (copying prompts)
 - @tauri-apps/plugin-global-shortcut (global ⌘⇧P palette shortcut)
+- @tauri-apps/plugin-process (automatic relaunch after installing an update)
 - @phosphor-icons/react (icons)
 
 NOT used (unlike Scratch): TipTap, Tantivy, dnd-kit, git integration.

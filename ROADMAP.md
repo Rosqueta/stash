@@ -4,14 +4,17 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 
 ## In progress
 
-Nothing in progress right now.
+Nothing right now — v0.1.3 just shipped. Next pick will come from the list below.
 
 ## Pending
 
-- [ ] **Update toast — improve description text and close button position** `bug`
+- [ ] **Tag filtering in the global palette** — filter by tag from ⌘⇧P, not just free text `idea`
+- [ ] **Pinned prompts up front** — show pinned prompts when the palette opens, before typing `idea`
+- [ ] **Search match highlighting** — show why a prompt matched when the hit is in its content `idea`
 
 ## Done
 
+- [x] **Smoother updates** — clearer update notice and automatic relaunch after installing `bug` · v0.1.3
 - [x] **Quick actions menu on prompt cards** — pin, copy, move or delete from the list, no need to open the prompt `feature` · v0.1.3
 - [x] **Drag & drop prompts into collections** — move prompts from the list to a sidebar collection `feature` · v0.1.3
 - [x] **"New prompt" button in the prompt list header** — move it where users look for it, with the tag filter alongside `improvement` · v0.1.3

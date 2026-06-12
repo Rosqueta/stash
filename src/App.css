@@ -218,6 +218,13 @@ input,
   min-width: 200px !important;
 }
 
+/* Toast — close button at the top-right corner (sonner defaults to top-left) */
+[data-sonner-toast] [data-close-button] {
+  left: auto;
+  right: 0;
+  transform: translate(35%, -35%);
+}
+
 /* Global palette — closing animation */
 .palette-closing {
   opacity: 0;

@@ -5,6 +5,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "@phosphor-icons/react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { ThemeProvider } from "./context/ThemeContext";
 import { PromptsProvider } from "./context/PromptsContext";
 import { initAnalytics, capture } from "./services/analytics";
@@ -125,7 +126,7 @@ function UpdateToast({ update, toastId }: { update: Update; toastId: string | nu
     try {
       await update.downloadAndInstall();
       toast.dismiss(toastId);
-      toast.success("Update installed! Restart Stash to apply.", { duration: Infinity, closeButton: true });
+      await relaunch();
     } catch {
       toast.error("Update failed. Please try again later.");
       setInstalling(false);
@@ -134,16 +135,16 @@ function UpdateToast({ update, toastId }: { update: Update; toastId: string | nu
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-sm font-medium">Update available: v{update.version}</p>
-      {update.body && (
-        <p className="text-xs text-[var(--color-text-muted)] line-clamp-3">{update.body}</p>
-      )}
+      <p className="text-sm font-medium">Update available</p>
+      <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
+        A new version of the app is available. The app will relaunch automatically after installing.
+      </p>
       <button
         onClick={() => void handleUpdate()}
         disabled={installing}
         className="self-start mt-1 text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--color-text)] text-[var(--color-bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
       >
-        {installing ? "Installing..." : "Update Now"}
+        {installing ? "Installing…" : "Install"}
       </button>
     </div>
   );
