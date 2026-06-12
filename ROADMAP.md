@@ -4,13 +4,19 @@ Community feedback and ideas welcome — [open an issue](https://github.com/Rosq
 
 ## In progress
 
-Nothing right now — v0.1.3 just shipped. Next pick will come from the list below.
+Nothing right now — v0.1.3 just shipped.
 
-## Pending
+## Planned
 
-- [ ] **Tag filtering in the global palette** — filter by tag from ⌘⇧P, not just free text `idea`
-- [ ] **Pinned prompts up front** — show pinned prompts when the palette opens, before typing `idea`
-- [ ] **Search match highlighting** — show why a prompt matched when the hit is in its content `idea`
+Nothing committed yet — the next picks will come from the ideas below.
+
+## Exploring
+
+Ideas from user feedback, under consideration. Interested in one of these? [Open an issue](https://github.com/Rosqueta/stash/issues) and tell us.
+
+- [ ] **Tag filtering in the global palette** — filter by tag from ⌘⇧P, not just free text
+- [ ] **Pinned prompts up front** — show pinned prompts when the palette opens, before typing
+- [ ] **Search match highlighting** — show why a prompt matched when the hit is in its content
 
 ## Done
 
